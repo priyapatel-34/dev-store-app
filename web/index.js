@@ -5,8 +5,10 @@ import express from "express";
 import serveStatic from "serve-static";
 import { pool } from "./db/db.js";
 import shopify from "./shopify.js";
+import { initDb } from "./db/initDb.js";
 import PrivacyWebhookHandlers from "./privacy.js";
 import retailersRoutes from "./routes/retailers.routes.js";
+import { attachStore } from "./middleware/storeMiddleware.js";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
@@ -16,7 +18,7 @@ const STATIC_PATH =
     : `${process.cwd()}/frontend/`;
 
 const app = express();
-
+await initDb();
 app.use(express.json());
 
 app.get(shopify.config.auth.path, shopify.auth.begin());
@@ -64,7 +66,7 @@ app.post(
 
 /* ---------------- AUTH MIDDLEWARE ---------------- */
 
-app.use("/api/*", shopify.validateAuthenticatedSession());
+app.use("/api/*", shopify.validateAuthenticatedSession(), attachStore);
 
 /* ---------------- SAMPLE API ---------------- */
 

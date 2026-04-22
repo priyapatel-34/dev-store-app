@@ -1,34 +1,87 @@
-const fs = require("fs");
-const csv = require("csv-parser");
-const pool = require("../config/db");
+import fs from "fs";
+import csv from "csv-parser";
+import { pool } from "../db/db.js";
 
-exports.getRetailers = async (req, res) => {
+const cleanText = (val) => {
+  if (!val || val.trim() === "") return null;
+  return val.trim();
+};
+
+const toNumber = (val) => {
+  if (!val || val.trim() === "") return null;
+  const num = parseFloat(val);
+  return isNaN(num) ? null : num;
+};
+
+export async function getRetailers(req, res) {
   try {
     const { country, category } = req.query;
+    const store_id = req.store_id;
 
     const query = `
-      SELECT 
-        r.id,
-        r.name,
-        r.city,
-        r.state,
-        r.status,
-        c.name AS country,
-        STRING_AGG(cat.name, ', ') AS categories
-      FROM retailers r
-      JOIN countries c ON r.country_id = c.id
-      LEFT JOIN retailer_categories rc ON r.id = rc.retailer_id
-      LEFT JOIN categories cat ON rc.category_id = cat.id
-      WHERE r.status = 'active'
+  SELECT 
+    r.id,
+    r.store_id,
+    r.name,
+    r.retailer_type,
+    r.status,
+    r.address_line1,
+    r.address_line2,
+    r.city,
+    r.state,
+    r.postal_code,
+    r.latitude,
+    r.longitude,
+    r.phone,
+    r.email,
+    r.website_url,
+    r.google_maps_link,
+    r.opening_hours,
+    r.notes,
+    c.name AS country,
+
+    COALESCE(
+      STRING_AGG(DISTINCT cat.name, ', '), 
+      ''
+    ) AS categories
+
+  FROM retailers r
+  JOIN countries c ON r.country_id = c.id
+  LEFT JOIN retailer_categories rc ON r.id = rc.retailer_id
+  LEFT JOIN categories cat ON rc.category_id = cat.id
+
+  WHERE r.store_id = $3 
         AND ($1::text IS NULL OR c.name ILIKE $1)
         AND ($2::text IS NULL OR cat.name ILIKE $2)
-      GROUP BY r.id, c.name
-      ORDER BY r.id DESC;
-    `;
+
+  GROUP BY 
+    r.id,
+    r.store_id,
+    r.name,
+    r.retailer_type,
+    r.status,
+    r.address_line1,
+    r.address_line2,
+    r.city,
+    r.state,
+    r.postal_code,
+    r.latitude,
+    r.longitude,
+    r.phone,
+    r.email,
+    r.website_url,
+    r.google_maps_link,
+    r.opening_hours,
+    r.notes,
+    c.name
+
+  ORDER BY r.id DESC;
+`;
 
     const values = [
       country ? `%${country}%` : null,
-      category ? `%${category}%` : null
+      category ? `%${category}%` : null,
+      store_id
     ];
 
     const result = await pool.query(query, values);
@@ -36,7 +89,7 @@ exports.getRetailers = async (req, res) => {
     res.json({
       success: true,
       count: result.rows.length,
-      data: result.rows
+      data: result.rows,
     });
 
   } catch (err) {
@@ -45,10 +98,10 @@ exports.getRetailers = async (req, res) => {
   }
 };
 
-exports.createRetailer = async (req, res) => {
+export async function createRetailer(req, res){
   try {
+    const store_id = req.store_id;
     const {
-      store_id,
       country_id,
       name,
       retailer_type,
@@ -126,12 +179,11 @@ exports.createRetailer = async (req, res) => {
   }
 };
 
-exports.updateRetailer = async (req, res) => {
+export async function updateRetailer(req, res){
   try {
     const { id } = req.params;
-
+    const store_id = req.store_id;
     const {
-      store_id,
       country_id,
       name,
       retailer_type,
@@ -223,7 +275,7 @@ exports.updateRetailer = async (req, res) => {
   }
 };
 
-exports.deleteRetailer = async (req, res) => {
+export async function deleteRetailer(req, res){
   try {
     const { id } = req.params;
 
@@ -235,10 +287,10 @@ exports.deleteRetailer = async (req, res) => {
   }
 };
 
-exports.getRetailerById = async (req, res) => {
+export async function getRetailerById(req, res){
   try {
     const { id } = req.params;
-    const { store_id } = req.query;
+    const store_id = req.store_id;
 
     if (!id) {
       return res.status(400).json({
@@ -291,19 +343,32 @@ exports.getRetailerById = async (req, res) => {
   }
 };
 
-// ✅ helpers
-const cleanText = (val) => {
-  if (!val || val.trim() === "") return null;
-  return val.trim();
+export async function toggleRetailerStatus(req, res){
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `UPDATE retailers
+       SET status = CASE 
+         WHEN status = 'active' THEN 'inactive'
+         ELSE 'active'
+       END
+       WHERE id = $1
+       RETURNING status`,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      status: result.rows[0].status
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
-const toNumber = (val) => {
-  if (!val || val.trim() === "") return null;
-  const num = parseFloat(val);
-  return isNaN(num) ? null : num;
-};
-
-exports.importRetailersCSV = async (req, res) => {
+export async function importRetailersCSV(req, res){
   const results = [];
   const errors = [];
 
@@ -333,7 +398,7 @@ exports.importRetailersCSV = async (req, res) => {
                 continue;
               }
 
-              const store_id = row.store_id || 1;
+              const store_id = req.store_id;
 
               // ✅ 2. Get country_id
               const countryRes = await client.query(
