@@ -8,14 +8,18 @@ const {
   updateRetailer,
   deleteRetailer,
   getRetailerById,
-  importRetailersCSV
+  importRetailersCSV,
+  exportRetailersCSV,
+  toggleRetailerStatus
 } = require("../controllers/retailers.controller");
 
-router.get("/retailers", getRetailers);
-router.post("/retailers", createRetailer);
-router.put("/retailers/:id", updateRetailer);
-router.delete("/retailers/:id", deleteRetailer);
-router.get("/retailers/:id", getRetailerById);
-router.post("/retailers/import", upload.single("file"), importRetailersCSV);
+router.get("/", getRetailers);
+router.post("/", createRetailer);
+router.put("/:id", updateRetailer);
+router.delete("/:id", deleteRetailer);
+router.get("/:id", getRetailerById);
+router.post("/import", upload.single("file"), importRetailersCSV);
+router.patch("/:id/toggle", toggleRetailerStatus);
+router.get("/export", exportRetailersCSV);
 
 module.exports = router;

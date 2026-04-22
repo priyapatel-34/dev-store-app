@@ -1,4 +1,4 @@
-import { BrowserRouter, useLocation } from "react-router-dom";
+import { BrowserRouter, useLocation , useNavigate } from "react-router-dom";
 import { Frame, Navigation } from "@shopify/polaris";
 import Routes from "./Routes";
 import { QueryProvider, PolarisProvider } from "./components";
@@ -14,9 +14,13 @@ function AppContent({ pages }) {
           <Navigation.Section
             items={[
               {
-                label: "Retailer List",
-                onClick: () => navigate("/AuthorizedRetailers"),
-              }
+                label: "Retailers",
+                onClick: () => navigate("/Retailers"),
+              },
+              {
+                label: "Categories",
+                onClick: () => navigate("/Categories"),
+              },
             ]}
           />
         </Navigation>
@@ -27,9 +31,10 @@ function AppContent({ pages }) {
   );
 }
 export default function App() {
-  const pages = import.meta.glob("./pages/**/!(*.test.[jt]sx)*.([jt]sx)", {
-    eager: true,
-  });
+  const pages = import.meta.glob(
+    "./pages/**/!(*.test.[jt]sx)*.([jt]sx)",
+    { eager: true }
+  );
 
   return (
     <PolarisProvider>

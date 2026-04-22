@@ -1,92 +1,72 @@
 import {
-  Card,
   Page,
   Layout,
-  TextContainer,
-  Image,
-  Stack,
-  Link,
   Text,
+  Card,
+  Stack,
+  List,
 } from "@shopify/polaris";
-import { TitleBar } from "@shopify/app-bridge-react";
-import { useTranslation, Trans } from "react-i18next";
-
-import { trophyImage } from "../assets";
-
-import { ProductsCard } from "../components";
 
 export default function HomePage() {
-  const { t } = useTranslation();
   return (
-    <Page narrowWidth>
-      <TitleBar title={t("HomePage.title")} />
+    <Page title="Retailer Locator App" fullWidth>
       <Layout>
+
+        {/* HERO */}
         <Layout.Section>
           <Card sectioned>
-            <Stack
-              wrap={false}
-              spacing="extraTight"
-              distribution="trailing"
-              alignment="center"
-            >
-              <Stack.Item fill>
-                <TextContainer spacing="loose">
-                  <Text as="h2" variant="headingMd">
-                    {t("HomePage.heading")}
-                  </Text>
-                  <p>
-                    <Trans
-                      i18nKey="HomePage.yourAppIsReadyToExplore"
-                      components={{
-                        PolarisLink: (
-                          <Link url="https://polaris.shopify.com/" external />
-                        ),
-                        AdminApiLink: (
-                          <Link
-                            url="https://shopify.dev/api/admin-graphql"
-                            external
-                          />
-                        ),
-                        AppBridgeLink: (
-                          <Link
-                            url="https://shopify.dev/apps/tools/app-bridge"
-                            external
-                          />
-                        ),
-                      }}
-                    />
-                  </p>
-                  <p>{t("HomePage.startPopulatingYourApp")}</p>
-                  <p>
-                    <Trans
-                      i18nKey="HomePage.learnMore"
-                      components={{
-                        ShopifyTutorialLink: (
-                          <Link
-                            url="https://shopify.dev/apps/getting-started/add-functionality"
-                            external
-                          />
-                        ),
-                      }}
-                    />
-                  </p>
-                </TextContainer>
-              </Stack.Item>
-              <Stack.Item>
-                <div style={{ padding: "0 20px" }}>
-                  <Image
-                    source={trophyImage}
-                    alt={t("HomePage.trophyAltText")}
-                    width={120}
-                  />
-                </div>
-              </Stack.Item>
+            <Stack vertical spacing="loose">
+              <Text as="h1" variant="headingLg">
+                Welcome to the Retailer Locator 👋
+              </Text>
+
+              <Text as="p" color="subdued">
+                Easily manage retailer locations, track store data, and help
+                customers find nearby stores directly from your Shopify admin.
+              </Text>
             </Stack>
           </Card>
         </Layout.Section>
+
+        {/* FEATURES */}
         <Layout.Section>
-          <ProductsCard />
+          <Card title="What you can do" sectioned>
+            <List type="bullet">
+              <List.Item>
+                Add and manage retailer locations
+              </List.Item>
+              <List.Item>
+              Enable store locator for customers
+              </List.Item>
+              <List.Item>
+              Track active and inactive retailers
+              </List.Item>
+              <List.Item>
+                Add and manage category 
+              </List.Item>
+              <List.Item>
+                Location and Search wise Retailer's Filtering.
+              </List.Item>
+            </List>
+          </Card>
         </Layout.Section>
+
+        {/* GETTING STARTED */}
+        <Layout.Section>
+          <Card sectioned>
+            <Stack vertical spacing="tight">
+              <Text as="h3" variant="headingSm">
+                Getting started
+              </Text>
+
+              <Text as="p" color="subdued">
+                Use the navigation on the left to manage retailers, configure
+                store data, and start building your store locator experience.
+              </Text>
+            </Stack>
+          </Card>
+        </Layout.Section>
+
       </Layout>
     </Page>
   );

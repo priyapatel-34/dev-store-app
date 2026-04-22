@@ -11,7 +11,10 @@
     "generate": "shopify app generate",
     "deploy": "shopify app deploy"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@shopify/polaris": "^13.9.5",
+    "xlsx": "^0.18.5"
+  },
   "author": "PCA177",
   "private": true,
   "workspaces": [
