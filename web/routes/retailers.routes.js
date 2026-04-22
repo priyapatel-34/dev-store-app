@@ -1,17 +1,16 @@
-const express = require("express");
-const router = express.Router();
-const multer = require("multer");
-const upload = multer({ dest: "uploads/" });
-const {
+import express from "express";
+import multer from "multer";
+import {
   getRetailers,
   createRetailer,
   updateRetailer,
   deleteRetailer,
   getRetailerById,
   importRetailersCSV,
-  exportRetailersCSV,
   toggleRetailerStatus
-} = require("../controllers/retailers.controller");
+} from "../controllers/retailers.controller.js";
+const router = express.Router();
+const upload = multer({ dest: "uploads/" });
 
 router.get("/", getRetailers);
 router.post("/", createRetailer);
@@ -20,6 +19,5 @@ router.delete("/:id", deleteRetailer);
 router.get("/:id", getRetailerById);
 router.post("/import", upload.single("file"), importRetailersCSV);
 router.patch("/:id/toggle", toggleRetailerStatus);
-router.get("/export", exportRetailersCSV);
 
-module.exports = router;
+export default router;

@@ -1,20 +1,19 @@
-
 import dotenv from "dotenv";
-import pkg from "pg";
-const { Pool } = pkg;
-
 import path from "path";
 import { fileURLToPath } from "url";
+import pkg from "pg";
+
+const { Pool } = pkg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load .env
 if (process.env.NODE_ENV !== "production") {
-  dotenv.config({ path: path.resolve(__dirname, "../.env") });
+  dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 }
 
-// Debug (optional)
+// Debug
 console.log("ENV:", {
   PG_HOST: process.env.PG_HOST,
   PG_USER: process.env.PG_USER,
@@ -23,7 +22,7 @@ console.log("ENV:", {
   PG_PORT: process.env.PG_PORT
 });
 
-// Create pool
+// Pool
 export const pool = new Pool({
   host: process.env.PG_HOST,
   user: process.env.PG_USER,

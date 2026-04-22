@@ -3,15 +3,12 @@ import { join } from "path";
 import { readFileSync } from "fs";
 import express from "express";
 import serveStatic from "serve-static";
-
+import { pool } from "./db/db.js";
 import shopify from "./shopify.js";
-import productCreator from "./product-creator.js";
 import PrivacyWebhookHandlers from "./privacy.js";
+import retailersRoutes from "./routes/retailers.routes.js";
 
-const PORT = parseInt(
-  process.env.BACKEND_PORT || process.env.PORT || "3000",
-  10
-);
+const PORT = parseInt(process.env.PORT || "3000", 10);
 
 const STATIC_PATH =
   process.env.NODE_ENV === "production"
@@ -20,59 +17,84 @@ const STATIC_PATH =
 
 const app = express();
 
-// Set up Shopify authentication and webhook handling
+app.use(express.json());
+
 app.get(shopify.config.auth.path, shopify.auth.begin());
 app.get(
   shopify.config.auth.callbackPath,
   shopify.auth.callback(),
-  shopify.redirectToShopifyOrAppRoot()
+  async (req, res) => {
+    try {
+      const session = res.locals.shopify.session;
+
+      if (!session) {
+        return res.status(500).send("No session found");
+      }
+
+      await pool.query(
+        `
+        INSERT INTO stores (shop_domain, access_token, is_installed, installed_at)
+        VALUES ($1, $2, TRUE, NOW())
+        ON CONFLICT (shop_domain)
+        DO UPDATE SET
+          access_token = EXCLUDED.access_token,
+          is_installed = TRUE,
+          uninstalled_at = NULL;
+        `,
+        [session.shop, session.accessToken]
+      );
+
+      console.log("✅ App installed:", session.shop);
+
+      return shopify.redirectToShopifyOrAppRoot();
+
+    } catch (err) {
+      console.error("Auth error:", err);
+      res.status(500).send("Auth failed");
+    }
+  }
 );
+
+/* ---------------- WEBHOOKS ---------------- */
+
 app.post(
   shopify.config.webhooks.path,
   shopify.processWebhooks({ webhookHandlers: PrivacyWebhookHandlers })
 );
 
-// If you are adding routes outside of the /api path, remember to
-// also add a proxy rule for them in web/frontend/vite.config.js
+/* ---------------- AUTH MIDDLEWARE ---------------- */
 
 app.use("/api/*", shopify.validateAuthenticatedSession());
 
-app.use(express.json());
+/* ---------------- SAMPLE API ---------------- */
 
 app.get("/api/products/count", async (_req, res) => {
   const client = new shopify.api.clients.Graphql({
     session: res.locals.shopify.session,
   });
 
-  const countData = await client.request(`
-    query shopifyProductCount {
+  const data = await client.request(`
+    query {
       productsCount {
         count
       }
     }
   `);
 
-  res.status(200).send({ count: countData.data.productsCount.count });
+  res.json({ count: data.data.productsCount.count });
 });
 
-app.post("/api/products", async (_req, res) => {
-  let status = 200;
-  let error = null;
+/* ---------------- RETAILER API ---------------- */
 
-  try {
-    await productCreator(res.locals.shopify.session);
-  } catch (e) {
-    console.log(`Failed to process products/create: ${e.message}`);
-    status = 500;
-    error = e.message;
-  }
-  res.status(status).send({ success: status === 200, error });
-});
+app.use("/api/retailers", retailersRoutes);
+
+/* ---------------- STATIC ---------------- */
 
 app.use(shopify.cspHeaders());
+
 app.use(serveStatic(STATIC_PATH, { index: false }));
 
-app.use("/*", shopify.ensureInstalledOnShop(), async (_req, res, _next) => {
+app.use("/*", shopify.ensureInstalledOnShop(), (req, res) => {
   return res
     .status(200)
     .set("Content-Type", "text/html")
@@ -83,4 +105,6 @@ app.use("/*", shopify.ensureInstalledOnShop(), async (_req, res, _next) => {
     );
 });
 
-app.listen(PORT);
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});

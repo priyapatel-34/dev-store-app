@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@shopify/polaris": "^13.9.5",
+    "multer": "^2.1.1",
     "xlsx": "^0.18.5"
   },
   "author": "PCA177",
