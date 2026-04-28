@@ -1,0 +1,118 @@
+{{ 'authorized-locator.css' | asset_url | stylesheet_tag }}
+{{ 'authorized-locator.js' | asset_url | script_tag }}
+
+<div class="authorized-locator-page">
+
+  <section class="hero-banner-section {% if block.settings.banner-height == 'medium-height' %}inner-banner{% endif %}">
+    
+    <div class="inner-wrap">
+
+      <div class="bg-img zoom-animation">
+
+        {% if block.settings.desk_image != blank %}
+          <img
+            class="desk-img"
+            src="{{ block.settings.desk_image | image_url: width: 2000 }}"
+            alt="{{ block.settings.desk_image.alt | escape }}"
+            width="2000"
+            height="800"
+          >
+        {% endif %}
+
+        {% if block.settings.mob_image != blank %}
+          <img
+            class="mob-img"
+            src="{{ block.settings.mob_image | image_url: width: 800 }}"
+            alt="{{ block.settings.mob_image.alt | escape }}"
+            width="800"
+            height="600"
+          >
+        {% endif %}
+
+      </div>
+
+      <div class="banner-content zoom-animation">
+        <div class="content-inner">
+
+          {% if block.settings.heading != blank %}
+            <h1>{{ block.settings.heading }}</h1>
+          {% else %}
+            <h1>{{ page.title }}</h1>
+          {% endif %}
+
+          {% if block.settings.sub_heading != blank %}
+            <div>{{ block.settings.sub_heading }}</div>
+          {% endif %}
+
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+<section class="breadcrumb-section">
+  <div class="container">
+    <a href="{{ routes.root_url }}">Home</a> /
+    <span>{{ page.title }}</span>
+  </div>
+</section>
+
+<section class="section-wrapper">
+  <div class="container">
+    <h2>{{ block.settings.page_content_title }}</h2>
+    <div>{{ block.settings.page_center_content }}</div>
+  </div>
+</section>
+</div>
+
+
+{% schema %}
+{
+  "name": "Authorized locator page",
+  "target": "section",
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "desk_image",
+      "label": "Desktop Image"
+    },
+    {
+      "type": "image_picker",
+      "id": "mob_image",
+      "label": "Mobile Image"
+    },
+    {
+      "type": "select",
+      "id": "banner-height",
+      "label": "Image Banner height",
+      "default": "full-height",
+      "options": [
+        { "label": "Full Height", "value": "full-height" },
+        { "label": "Medium Height", "value": "medium-height" }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading Text",
+      "default": "Authorized Dealer Locator"
+    },
+    {
+      "type": "text",
+      "id": "sub_heading",
+      "label": "Sub Heading Text",
+      "default": "Hear the Difference"
+    },
+     {
+      "type": "text",
+      "id": "page_content_title",
+      "label": "Content Title"
+    },
+    {
+      "type": "richtext",
+      "id": "page_center_content",
+      "label": "Content"
+    }
+  ]
+}
+{% endschema %}

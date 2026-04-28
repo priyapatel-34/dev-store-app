@@ -1,5 +1,4 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState, useEffect } from "react";
 import {
     Badge,
     Banner,
@@ -17,47 +16,14 @@ import {
     Text,
     TextField,
     useIndexResourceState,
+    Spinner
 } from "@shopify/polaris";
 
-const initialCategories = [
-    {
-        id: "category-001",
-        name: "Outdoor Apparel",
-        store_id: "1",
-        status: "Active",
-    },
-    {
-        id: "category-002",
-        name: "Travel Bags",
-        store_id: "1",
-        status: "Active",
-    },
-    {
-        id: "category-003",
-        name: "Legacy Footwear",
-        store_id: "2",
-        status: "Inactive",
-    },
-    {
-        id: "category-004",
-        name: "Hydration",
-        store_id: "2",
-        status: "Active",
-    },
-    {
-        id: "category-005",
-        name: "Retail Displays",
-        store_id: "1",
-        status: "Inactive",
-    },
-];
-
-const fields = ["id", "name", "store_id", "status"];
+const fields = ["category_id", "name", "status"];
 
 const defaultCategory = (nextNumber) => ({
     id: `category-${String(nextNumber).padStart(3, "0")}`,
     name: "",
-    store: '',
     status: "Active",
 });
 
@@ -70,13 +36,34 @@ const fieldLabel = (field) =>
 const statusTone = (status) => (status === "Active" ? "success" : "critical");
 
 const Categories = () => {
-    const navigate = useNavigate();
-    const [categories, setCategories] = useState(initialCategories);
+    const [categories, setCategories] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [editingCategory, setEditingCategory] = useState(null);
     const [deletingCategory, setDeletingCategory] = useState(null);
     const [isCreating, setIsCreating] = useState(false);
-    const pageSize = 4;
+    const pageSize = 6;
+
+    const fetchCategories = async () => {
+        try {
+            setLoading(true);
+
+            const res = await fetch("/api/categories");
+            const data = await res.json();
+
+            if (data.success) {
+                setCategories(data.data);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchCategories();
+    }, []);
 
     const totalPages = Math.max(1, Math.ceil(categories.length / pageSize));
     const paginatedCategories = useMemo(
@@ -84,8 +71,81 @@ const Categories = () => {
         [categories, page],
     );
 
-    const { selectedResources, allResourcesSelected, handleSelectionChange, clearSelection } =
+    const { selectedResources, allResourcesSelected, handleSelectionChange } =
         useIndexResourceState(paginatedCategories);
+
+    const createCategory = async () => {
+            try {
+              const res = await fetch("/api/retailers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(newRetailer),
+              });
+        
+              const data = await res.json();
+        
+              if (data.success) {
+                fetchRetailers();
+                setIsCreateOpen(false);
+                setNewRetailer(emptyRetailer);
+              }
+            } catch (err) {
+              console.error(err);
+            }
+          };
+
+    const saveCategory = async () => {
+        if (!editingCategory) return;
+
+        try {
+            if (isCreating) {
+                // CREATE
+                await fetch("/api/categories", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        name: editingCategory.name,
+                    }),
+                });
+            } else {
+                // UPDATE
+                await fetch(`/api/categories/${editingCategory.id}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        name: editingCategory.name,
+                        is_active: editingCategory.status === "Active",
+                    }),
+                });
+            }
+
+            await fetchCategories();
+            closeCategoryModal();
+
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const deleteCategory = async () => {
+        if (!deletingCategory) return;
+
+        try {
+            await fetch(`/api/categories/${deletingCategory.id}`, {
+                method: "DELETE",
+            });
+
+            await fetchCategories();
+            setDeletingCategory(null);
+
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const openCreateCategory = () => {
         setIsCreating(true);
@@ -99,27 +159,6 @@ const Categories = () => {
 
     const updateEditingCategory = (field, value) => {
         setEditingCategory((current) => ({ ...current, [field]: value }));
-    };
-
-    const saveCategory = () => {
-        if (!editingCategory) return;
-
-        setCategories((current) =>
-            isCreating
-                ? [editingCategory, ...current]
-                : current.map((category) => (category.id === editingCategory.id ? editingCategory : category)),
-        );
-        closeCategoryModal();
-        setPage(1);
-    };
-
-    const deleteCategory = () => {
-        if (!deletingCategory) return;
-
-        setCategories((current) => current.filter((category) => category.id !== deletingCategory.id));
-        setDeletingCategory(null);
-        clearSelection();
-        setPage((currentPage) => Math.min(currentPage, Math.max(1, Math.ceil((categories.length - 1) / pageSize))));
     };
 
     const rowMarkup = paginatedCategories.map((category, index) => (
@@ -205,7 +244,6 @@ const Categories = () => {
                             <TextField label="Category ID" value={editingCategory.id} onChange={(value) => updateEditingCategory("id", value)} autoComplete="off" disabled={!isCreating} />
                             <FormLayout.Group condensed>
                                 <TextField label="Name" value={editingCategory.name} onChange={(value) => updateEditingCategory("name", value)} autoComplete="off" />
-                                <TextField label="Store ID" value={editingCategory.id} onChange={(value) => updateEditingCategory("id", value)} autoComplete="off" disabled={!isCreating} />
                                 <Select label="Status" options={["Active", "Inactive"]} value={editingCategory.status} onChange={(value) => updateEditingCategory("status", value)} />
                             </FormLayout.Group>
                         </FormLayout>

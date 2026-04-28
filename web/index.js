@@ -8,7 +8,6 @@ import shopify from "./shopify.js";
 import { initDb } from "./db/initDb.js";
 import PrivacyWebhookHandlers from "./privacy.js";
 import retailersRoutes from "./routes/retailers.routes.js";
-import { attachStore } from "./middleware/storeMiddleware.js";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
@@ -35,13 +34,12 @@ app.get(
 
       await pool.query(
         `
-        INSERT INTO stores (shop_domain, access_token, is_installed, installed_at)
-        VALUES ($1, $2, TRUE, NOW())
+        INSERT INTO stores (shop_domain, access_token, is_installed)
+        VALUES ($1, $2, true)
         ON CONFLICT (shop_domain)
         DO UPDATE SET
           access_token = EXCLUDED.access_token,
-          is_installed = TRUE,
-          uninstalled_at = NULL;
+          is_installed = true
         `,
         [session.shop, session.accessToken]
       );
@@ -66,7 +64,7 @@ app.post(
 
 /* ---------------- AUTH MIDDLEWARE ---------------- */
 
-app.use("/api/*", shopify.validateAuthenticatedSession(), attachStore);
+app.use("/api/*", shopify.validateAuthenticatedSession());
 
 /* ---------------- SAMPLE API ---------------- */
 

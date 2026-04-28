@@ -1,0 +1,16 @@
+.section--page-width {
+    display: block;
+}
+
+.shopify-app-block {
+    width: 100%;
+}
+
+.shopify-block.shopify-app-block {
+    width: 100%;
+}
+
+.color-scheme-1 {
+    background-color: #000;
+    color: #fff;
+}

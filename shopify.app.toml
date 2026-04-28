@@ -2,7 +2,7 @@
 
 client_id = "7c2a637612539eb2484e0c38b82e6797"
 name = "dev-store-app"
-application_url = "https://factory-corps-discovery-protest.trycloudflare.com"
+application_url = "https://refine-attitude-defense-deutsche.trycloudflare.com"
 embedded = true
 
 [build]
@@ -17,4 +17,4 @@ api_version = "2026-07"
 scopes = "write_products"
 
 [auth]
-redirect_urls = [ "https://factory-corps-discovery-protest.trycloudflare.com/api/auth" ]
+redirect_urls = [ "https://refine-attitude-defense-deutsche.trycloudflare.com/api/auth" ]

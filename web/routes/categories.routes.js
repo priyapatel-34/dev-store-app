@@ -7,9 +7,9 @@ const {
     deleteCategories,
   } = require("../controllers/categories.controller");
 
-router.get("/categories", getCategories);
-router.post("/categories", createCategories);
-router.put("/categories/:id", updateCategories);
-router.delete("/categories/:id", deleteCategories);
+router.get("/", getCategories);
+router.post("/", createCategories);
+router.put("/:id", updateCategories);
+router.delete("/:id", deleteCategories);
 
-module.exports = router;
+module.exports = router;const res = await fetch
