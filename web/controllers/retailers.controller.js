@@ -3,104 +3,142 @@ import csv from "csv-parser";
 import { pool } from "../db/db.js";
 
 const cleanText = (val) => {
-  if (!val || val.trim() === "") return null;
-  return val.trim();
+  if (val === undefined || val === null) return null;
+  const trimmed = String(val).trim();
+  return trimmed === "" ? null : trimmed;
 };
 
 const toNumber = (val) => {
-  if (!val || val.trim() === "") return null;
-  const num = parseFloat(val);
-  return isNaN(num) ? null : num;
+  if (val === undefined || val === null || String(val).trim() === "") return null;
+  const n = Number(val);
+  return isNaN(n) ? null : n;
 };
+
+const safeUnlink = (filePath) => {
+  try {
+    if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch (_) {
+  }
+};
+
+const ALLOWED_RETAILER_TYPES = ["online", "offline"];
+
+const RETAILER_TYPE_ALIASES = {
+  online:              "online",
+  offline:             "offline",
+};
+
+async function getShopIdFromSession(res) {
+  const session = res.locals.shopify?.session;
+
+  if (!session || !session.shop) {
+    throw new Error("Unauthorized");
+  }
+
+  const shopDomain = session.shop;
+
+  const { rows } = await pool.query(
+    `SELECT id FROM shops WHERE shop_domain = $1 AND is_installed = TRUE`,
+    [shopDomain]
+  );
+
+  if (!rows.length) {
+    throw new Error("Shop not registered");
+  }
+
+  return rows[0].id;
+}
 
 export async function getRetailers(req, res) {
   try {
+    const store_id = await getShopIdFromSession(res);
+
     const { country, category } = req.query;
-    const store_id = req.store_id;
 
     const query = `
-  SELECT 
-    r.id,
-    r.store_id,
-    r.name,
-    r.retailer_type,
-    r.status,
-    r.address_line1,
-    r.address_line2,
-    r.city,
-    r.state,
-    r.postal_code,
-    r.latitude,
-    r.longitude,
-    r.phone,
-    r.email,
-    r.website_url,
-    r.google_maps_link,
-    r.opening_hours,
-    r.notes,
-    c.name AS country,
+      SELECT 
+        r.id,
+        r.store_id,
+        r.name,
+        r.retailer_type,
+        r.status,
+        r.address_line1,
+        r.address_line2,
+        r.city,
+        r.state,
+        r.postal_code,
+        r.latitude,
+        r.longitude,
+        r.phone,
+        r.email,
+        r.website_url,
+        r.google_maps_link,
+        r.opening_hours,
+        r.notes,
+        c.name AS country,
 
-    COALESCE(
-      STRING_AGG(DISTINCT cat.name, ', '), 
-      ''
-    ) AS categories
+        COALESCE(
+          STRING_AGG(DISTINCT cat.name, ', '), 
+          ''
+        ) AS categories
 
-  FROM retailers r
-  JOIN countries c ON r.country_id = c.id
-  LEFT JOIN retailer_categories rc ON r.id = rc.retailer_id
-  LEFT JOIN categories cat ON rc.category_id = cat.id
+      FROM retailers r
+      JOIN countries c ON r.country_id = c.id
+      LEFT JOIN retailer_categories rc ON r.id = rc.retailer_id
+      LEFT JOIN categories cat ON rc.category_id = cat.id
 
-  WHERE r.store_id = $3 
-        AND ($1::text IS NULL OR c.name ILIKE $1)
-        AND ($2::text IS NULL OR cat.name ILIKE $2)
+      WHERE r.store_id = $1
+        AND ($2::text IS NULL OR c.name ILIKE $2)
+        AND ($3::text IS NULL OR cat.name ILIKE $3)
 
-  GROUP BY 
-    r.id,
-    r.store_id,
-    r.name,
-    r.retailer_type,
-    r.status,
-    r.address_line1,
-    r.address_line2,
-    r.city,
-    r.state,
-    r.postal_code,
-    r.latitude,
-    r.longitude,
-    r.phone,
-    r.email,
-    r.website_url,
-    r.google_maps_link,
-    r.opening_hours,
-    r.notes,
-    c.name
+      GROUP BY 
+        r.id,
+        r.store_id,
+        r.name,
+        r.retailer_type,
+        r.status,
+        r.address_line1,
+        r.address_line2,
+        r.city,
+        r.state,
+        r.postal_code,
+        r.latitude,
+        r.longitude,
+        r.phone,
+        r.email,
+        r.website_url,
+        r.google_maps_link,
+        r.opening_hours,
+        r.notes,
+        c.name
 
-  ORDER BY r.id DESC;
-`;
+      ORDER BY r.id DESC;
+    `;
 
     const values = [
+      store_id,
       country ? `%${country}%` : null,
       category ? `%${category}%` : null,
-      store_id
     ];
 
     const result = await pool.query(query, values);
 
-    res.json({
+    return res.json({
       success: true,
       count: result.rows.length,
       data: result.rows,
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+    console.error("❌ getRetailers error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
-};
+}
 
-export async function createRetailer(req, res){
+export async function createRetailer(req, res) {
   try {
-    const store_id = req.store_id;
+    const store_id = await getShopIdFromSession(res);
+
     const {
       country_id,
       name,
@@ -160,7 +198,6 @@ export async function createRetailer(req, res){
 
     const retailer = result.rows[0];
 
-    // insert categories
     if (category_ids?.length) {
       for (let catId of category_ids) {
         await pool.query(
@@ -175,14 +212,17 @@ export async function createRetailer(req, res){
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.message === "Unauthorized" ? 401 : 500).json({
+      error: err.message
+    });
   }
-};
+}
 
-export async function updateRetailer(req, res){
+export async function updateRetailer(req, res) {
   try {
+    const store_id = await getShopIdFromSession(res);
     const { id } = req.params;
-    const store_id = req.store_id;
+
     const {
       country_id,
       name,
@@ -204,29 +244,36 @@ export async function updateRetailer(req, res){
       category_ids
     } = req.body;
 
+    const check = await pool.query(
+      `SELECT id FROM retailers WHERE id = $1 AND store_id = $2`,
+      [id, store_id]
+    );
+
+    if (!check.rows.length) {
+      return res.status(403).json({ error: "Unauthorized retailer access" });
+    }
+
     await pool.query(
       `UPDATE retailers SET
-        store_id = COALESCE($1, store_id),
-        country_id = COALESCE($2, country_id),
-        name = COALESCE($3, name),
-        retailer_type = COALESCE($4, retailer_type),
-        status = COALESCE($5, status),
-        address_line1 = COALESCE($6, address_line1),
-        address_line2 = COALESCE($7, address_line2),
-        city = COALESCE($8, city),
-        state = COALESCE($9, state),
-        postal_code = COALESCE($10, postal_code),
-        latitude = COALESCE($11, latitude),
-        longitude = COALESCE($12, longitude),
-        phone = COALESCE($13, phone),
-        email = COALESCE($14, email),
-        website_url = COALESCE($15, website_url),
-        google_maps_link = COALESCE($16, google_maps_link),
-        opening_hours = COALESCE($17, opening_hours),
-        notes = COALESCE($18, notes)
-      WHERE id = $19`,
+        country_id = COALESCE($1, country_id),
+        name = COALESCE($2, name),
+        retailer_type = COALESCE($3, retailer_type),
+        status = COALESCE($4, status),
+        address_line1 = COALESCE($5, address_line1),
+        address_line2 = COALESCE($6, address_line2),
+        city = COALESCE($7, city),
+        state = COALESCE($8, state),
+        postal_code = COALESCE($9, postal_code),
+        latitude = COALESCE($10, latitude),
+        longitude = COALESCE($11, longitude),
+        phone = COALESCE($12, phone),
+        email = COALESCE($13, email),
+        website_url = COALESCE($14, website_url),
+        google_maps_link = COALESCE($15, google_maps_link),
+        opening_hours = COALESCE($16, opening_hours),
+        notes = COALESCE($17, notes)
+      WHERE id = $18`,
       [
-        store_id || null,
         country_id || null,
         name || null,
         retailer_type || null,
@@ -248,12 +295,8 @@ export async function updateRetailer(req, res){
       ]
     );
 
-    // ✅ Update categories ONLY if provided
     if (category_ids) {
-      await pool.query(
-        `DELETE FROM retailer_categories WHERE retailer_id = $1`,
-        [id]
-      );
+      await pool.query(`DELETE FROM retailer_categories WHERE retailer_id = $1`, [id]);
 
       for (let catId of category_ids) {
         await pool.query(
@@ -264,87 +307,88 @@ export async function updateRetailer(req, res){
       }
     }
 
+    res.json({ success: true, message: "Retailer updated successfully" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(err.message === "Unauthorized" ? 401 : 500).json({
+      error: err.message
+    });
+  }
+}
+
+export async function deleteRetailer(req, res) {
+  try {
+    const store_id = await getShopIdFromSession(res);
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `UPDATE retailers
+       SET status = 'inactive'
+       WHERE id = $1 AND store_id = $2
+       RETURNING id`,
+      [id, store_id]
+    );
+
+    if (!result.rows.length) {
+      return res.status(403).json({
+        error: "Unauthorized or retailer not found"
+      });
+    }
+
     res.json({
       success: true,
-      message: "Retailer updated successfully"
+      message: "Retailer marked as inactive"
     });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.message === "Unauthorized" ? 401 : 500).json({
+      error: err.message
+    });
   }
-};
+}
 
-export async function deleteRetailer(req, res){
+export async function getRetailerById(req, res) {
   try {
+    const store_id = await getShopIdFromSession(res);
     const { id } = req.params;
 
-    await pool.query(`DELETE FROM retailers WHERE id=$1`, [id]);
-
-    res.json({ message: "Deleted successfully" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-export async function getRetailerById(req, res){
-  try {
-    const { id } = req.params;
-    const store_id = req.store_id;
-
-    if (!id) {
-      return res.status(400).json({
-        error: "Retailer id is required"
-      });
-    }
-
-    const query = `
+    const result = await pool.query(
+      `
       SELECT 
         r.*,
         c.name AS country,
-        ARRAY_AGG(DISTINCT cat.name) 
-          FILTER (WHERE cat.name IS NOT NULL) AS categories,
-        ARRAY_AGG(DISTINCT cat.id) 
-          FILTER (WHERE cat.id IS NOT NULL) AS category_ids
+        ARRAY_AGG(DISTINCT cat.name) FILTER (WHERE cat.name IS NOT NULL) AS categories,
+        ARRAY_AGG(DISTINCT cat.id) FILTER (WHERE cat.id IS NOT NULL) AS category_ids
       FROM retailers r
       JOIN countries c ON r.country_id = c.id
       LEFT JOIN retailer_categories rc ON r.id = rc.retailer_id
-      LEFT JOIN categories cat 
-        ON rc.category_id = cat.id
-      WHERE r.id = $1
-        AND ($2::int IS NULL OR r.store_id = $2)
+      LEFT JOIN categories cat ON rc.category_id = cat.id
+      WHERE r.id = $1 AND r.store_id = $2
       GROUP BY r.id, c.name
-      LIMIT 1;
-    `;
-
-    const values = [
-      id,
-      store_id || null
-    ];
-
-    const result = await pool.query(query, values);
+      LIMIT 1
+      `,
+      [id, store_id]
+    );
 
     if (!result.rows.length) {
-      return res.status(404).json({
-        error: "Retailer not found"
-      });
+      return res.status(404).json({ error: "Retailer not found" });
     }
 
-    res.json({
-      success: true,
-      data: result.rows[0]
-    });
+    res.json({ success: true, data: result.rows[0] });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({
-      error: "Server error"
+    res.status(err.message === "Unauthorized" ? 401 : 500).json({
+      error: err.message
     });
   }
-};
+}
 
-export async function toggleRetailerStatus(req, res){
+export async function toggleRetailerStatus(req, res) {
   try {
+    const store_id = await getShopIdFromSession(res);
     const { id } = req.params;
 
     const result = await pool.query(
@@ -353,10 +397,14 @@ export async function toggleRetailerStatus(req, res){
          WHEN status = 'active' THEN 'inactive'
          ELSE 'active'
        END
-       WHERE id = $1
+       WHERE id = $1 AND store_id = $2
        RETURNING status`,
-      [id]
+      [id, store_id]
     );
+
+    if (!result.rows.length) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
 
     res.json({
       success: true,
@@ -364,148 +412,182 @@ export async function toggleRetailerStatus(req, res){
     });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.message === "Unauthorized" ? 401 : 500).json({
+      error: err.message
+    });
   }
+}
+
+const normalizeRetailerType = (val) => {
+  if (!val || String(val).trim() === "") return "offline";
+  const key = String(val).trim().toLowerCase();
+  return RETAILER_TYPE_ALIASES[key] ?? null; 
 };
 
-export async function importRetailersCSV(req, res){
+// ─── Import CSV ───────────────────────────────────────────────────────────────
+
+export async function importRetailersCSV(req, res) {
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: "CSV file is required." });
+  }
+
+  const filePath = req.file.path;
   const results = [];
   const errors = [];
-
-  if (!req.file) {
-    return res.status(400).json({ error: "CSV file required" });
-  }
+  let successCount = 0;
 
   try {
-    fs.createReadStream(req.file.path)
-      .pipe(csv())
-      .on("data", (row) => results.push(row))
-      .on("end", async () => {
-        const client = await pool.connect();
-
-        let successCount = 0;
-
-        try {
-          await client.query("BEGIN");
-
-          for (let i = 0; i < results.length; i++) {
-            const row = results[i];
-
-            try {
-              // ✅ 1. Validation
-              if (!row.name || !row.country) {
-                errors.push({ row: i + 1, error: "Missing name/country" });
-                continue;
-              }
-
-              const store_id = req.store_id;
-
-              // ✅ 2. Get country_id
-              const countryRes = await client.query(
-                `SELECT id FROM countries WHERE name ILIKE $1 LIMIT 1`,
-                [row.country.trim()]
-              );
-
-              if (!countryRes.rows.length) {
-                errors.push({ row: i + 1, error: "Invalid country" });
-                continue;
-              }
-
-              const country_id = countryRes.rows[0].id;
-
-              // ✅ 3. Insert retailer
-              const retailerRes = await client.query(
-                `INSERT INTO retailers (
-                  store_id, country_id, name, retailer_type, status,
-                  address_line1, address_line2, city, state, postal_code,
-                  latitude, longitude, phone, email,
-                  website_url, google_maps_link, opening_hours, notes
-                )
-                VALUES (
-                  $1,$2,$3,$4,$5,
-                  $6,$7,$8,$9,$10,
-                  $11,$12,$13,$14,
-                  $15,$16,$17,$18
-                )
-                RETURNING id`,
-                [
-                  store_id,
-                  country_id,
-                  cleanText(row.name),
-                  cleanText(row.retailer_type) || "offline",
-                  "active",
-                  cleanText(row.address_line1),
-                  cleanText(row.address_line2),
-                  cleanText(row.city),
-                  cleanText(row.state),
-                  cleanText(row.postal_code),
-                  toNumber(row.latitude),
-                  toNumber(row.longitude),
-                  cleanText(row.phone),
-                  cleanText(row.email),
-                  cleanText(row.website_url),
-                  cleanText(row.google_maps_link),
-                  cleanText(row.opening_hours),
-                  cleanText(row.notes)
-                ]
-              );
-
-              const retailer_id = retailerRes.rows[0].id;
-
-              // ✅ 4. Handle categories (MULTI STORE SAFE)
-              if (row.categories) {
-                const categoryList = row.categories.split(",");
-
-                for (let catName of categoryList) {
-                  const catRes = await client.query(
-                    `SELECT id FROM categories 
-                     WHERE name ILIKE $1 AND store_id = $2 
-                     LIMIT 1`,
-                    [catName.trim(), store_id]
-                  );
-
-                  if (catRes.rows.length) {
-                    await client.query(
-                      `INSERT INTO retailer_categories (retailer_id, category_id)
-                       VALUES ($1, $2)
-                       ON CONFLICT DO NOTHING`,
-                      [retailer_id, catRes.rows[0].id]
-                    );
-                  }
-                }
-              }
-
-              successCount++;
-
-            } catch (rowErr) {
-              errors.push({
-                row: i + 1,
-                error: rowErr.message
-              });
-            }
-          }
-
-          await client.query("COMMIT");
-
-        } catch (err) {
-          await client.query("ROLLBACK");
-          throw err;
-        } finally {
-          client.release();
-          fs.unlinkSync(req.file.path);
-        }
-
-        return res.json({
-          success: true,
-          total: results.length,
-          inserted: successCount,
-          failed: errors.length,
-          errors
-        });
-      });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Import failed" });
+    // 2. Parse the CSV into memory first, then process
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(filePath)
+        .on("error", reject) // ← handle unreadable file
+        .pipe(csv())
+        .on("data", (row) => results.push(row))
+        .on("error", reject) // ← handle malformed CSV
+        .on("end", resolve);
+    });
+  } catch (parseErr) {
+    safeUnlink(filePath);
+    return res.status(400).json({
+      success: false,
+      error: "Failed to parse CSV file. Ensure it is a valid CSV.",
+    });
   }
-};
+
+  if (results.length === 0) {
+    safeUnlink(filePath);
+    return res.status(400).json({ success: false, error: "CSV file is empty." });
+  }
+
+  const store_id = req.store_id;
+
+  for (let i = 0; i < results.length; i++) {
+    const row = results[i];
+    const rowNum = i + 2;
+
+    if (!cleanText(row.name)) {
+      errors.push({ row: rowNum, error: "Missing required field: name" });
+      continue;
+    }
+    if (!cleanText(row.country)) {
+      errors.push({ row: rowNum, error: "Missing required field: country" });
+      continue;
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const countryRes = await client.query(
+        `SELECT id FROM countries WHERE name ILIKE $1 LIMIT 1`,
+        [row.country.trim()]
+      );
+
+      if (!countryRes.rows.length) {
+        errors.push({ row: rowNum, error: `Country not found: "${row.country}"` });
+        await client.query("ROLLBACK");
+        continue;
+      }
+      const country_id = countryRes.rows[0].id;
+
+      const retailerType = normalizeRetailerType(row.retailer_type);
+      if (retailerType === null) {
+        errors.push({
+          row: rowNum,
+          error: `Invalid retailer_type: "${row.retailer_type}". Allowed values: ${ALLOWED_RETAILER_TYPES.join(", ")}. Common aliases like "physical" and "store" are also accepted.`,
+        });
+        await client.query("ROLLBACK");
+        continue;
+      }
+
+      const rawStatus = cleanText(row.status)?.toLowerCase();
+      const retailerStatus = rawStatus === "inactive" ? "inactive" : "active";
+
+      const retailerRes = await client.query(
+        `INSERT INTO retailers (
+          store_id, country_id, name, retailer_type, status,
+          address_line1, address_line2, city, state, postal_code,
+          latitude, longitude, phone, email,
+          website_url, google_maps_link, opening_hours, notes
+        )
+        VALUES (
+          $1,$2,$3,$4,$5,
+          $6,$7,$8,$9,$10,
+          $11,$12,$13,$14,
+          $15,$16,$17,$18
+        )
+        ON CONFLICT DO NOTHING
+        RETURNING id`,
+        [
+          store_id,
+          country_id,
+          cleanText(row.name),
+          retailerType,  
+          retailerStatus, 
+          cleanText(row.address_line1),
+          cleanText(row.address_line2),
+          cleanText(row.city),
+          cleanText(row.state),
+          cleanText(row.postal_code),
+          toNumber(row.latitude),
+          toNumber(row.longitude),
+          cleanText(row.phone),
+          cleanText(row.email),
+          cleanText(row.website_url),
+          cleanText(row.google_maps_link),
+          cleanText(row.opening_hours),
+          cleanText(row.notes),
+        ]
+      );
+
+      if (!retailerRes.rows.length) {
+        errors.push({ row: rowNum, error: `Duplicate retailer skipped: "${row.name}"` });
+        await client.query("ROLLBACK");
+        continue;
+      }
+
+      const retailer_id = retailerRes.rows[0].id;
+
+      if (cleanText(row.categories)) {
+        const categoryList = row.categories.split(",").map((c) => c.trim()).filter(Boolean);
+
+        for (const catName of categoryList) {
+          const catRes = await client.query(
+            `SELECT id FROM categories WHERE name ILIKE $1 AND store_id = $2 LIMIT 1`,
+            [catName, store_id]
+          );
+
+          if (catRes.rows.length) {
+            await client.query(
+              `INSERT INTO retailer_categories (retailer_id, category_id)
+               VALUES ($1, $2)
+               ON CONFLICT DO NOTHING`,
+              [retailer_id, catRes.rows[0].id]
+            );
+          }
+        }
+      }
+
+      await client.query("COMMIT");
+      successCount++;
+    } catch (rowErr) {
+      await client.query("ROLLBACK");
+      console.error(`Row ${rowNum} failed:`, rowErr.message);
+      errors.push({ row: rowNum, error: rowErr.message });
+    } finally {
+      client.release();
+    }
+  }
+
+  safeUnlink(filePath);
+
+  return res.json({
+    success: true,
+    total: results.length,
+    inserted: successCount,
+    skipped: results.length - successCount - errors.filter(e => e.error.startsWith("Duplicate")).length,
+    failed: errors.length,
+    errors,
+  });
+}

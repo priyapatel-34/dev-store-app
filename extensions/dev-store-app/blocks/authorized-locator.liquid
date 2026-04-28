@@ -41,7 +41,7 @@
           {% endif %}
 
           {% if block.settings.sub_heading != blank %}
-            <div>{{ block.settings.sub_heading }}</div>
+            <p>{{ block.settings.sub_heading }}</p>
           {% endif %}
 
         </div>
@@ -50,20 +50,218 @@
     </div>
 
   </section>
-<section class="breadcrumb-section">
-  <div class="container">
-    <a href="{{ routes.root_url }}">Home</a> /
-    <span>{{ page.title }}</span>
-  </div>
-</section>
+  <div class="content-sections">
+    <section class="breadcrumb-section section-wrapper">
+      <div class="container">
+        <a href="{{ routes.root_url }}">Home</a> /
+        <span>{{ page.title }}</span>
+      </div>
+    </section>
 
-<section class="section-wrapper">
-  <div class="container">
-    <h2>{{ block.settings.page_content_title }}</h2>
-    <div>{{ block.settings.page_center_content }}</div>
+    <section class="section-wrapper">
+      <div class="container">
+        <h2>{{ block.settings.page_content_title }}</h2>
+        <div>{{ block.settings.page_center_content }}</div>
+      </div>
+    </section>
+
+    <section class="section-wrapper dealer-locations-section">
+      <div class="container">
+          <div class="dealer-location-filters-block">
+              <div class="search-container">
+                  <div class="left-wrap">
+                      <div class="input-box">
+                          <input type="text" placeholder="Gurgaon, Delhi">
+                      </div>
+                  </div>
+                  <div class="right-wrap">
+                      <div class="dropdown" id="categoryDropdown">
+                          <div class="dropdown-btn">Select Category</div>
+                          <div class="dropdown-list">
+                              <div>Consumer Headphones</div>
+                              <div>Hearing Solutions</div>
+                              <div>TV Listening</div>
+                              <div>Soundbars</div>
+                              <div>Accessories</div>
+                          </div>
+                      </div>
+                      <div class="dropdown radius" id="radiusDropdown">
+                          <div class="dropdown-btn">Radius</div>
+                          <div class="dropdown-list">
+                              <div>5 km</div>
+                              <div>10 km</div>
+                              <div>25 km</div>
+                          </div>
+                      </div>
+                      <button class="btn btn-primary">Search</button>
+                  </div>
+              </div>
+          </div>
+          <div class="dealer-location-block">
+              <div class="left-block">
+                  <div class="upper-block">
+                      <h3>Dealers near "Gurgaon"</h3>
+                      <p>Showing 4 authorized locations within 25 km</p>
+                  </div>
+                  <div class="lower-block">
+                      <div class="custom-location-card">
+                          <div class="content-block">
+                              <div class="title-block">
+                                  <h4>Audio Vision</h4>
+                                  <span>4km</span>
+                              </div>
+                              <ul class="icon-list">
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'location-icon.svg' | asset_url }}" alt="Location Icon">
+                                      </em>
+                                      <span>
+                                          Sector 11, Old Railway Road, Gurgaon
+                                      </span>
+                                  </li>
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'phone-icon.svg' | asset_url }}" alt="Phone Icon">
+                                      </em>
+                                      <a href="tel:+91 9154682813">+91 9154682813</a>
+                                  </li>
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'web-icon.svg' | asset_url }}" alt="Web Icon">
+                                      </em>
+                                      <a href="" title="www.audiovision.com">www.audiovision.com</a>
+                                  </li>
+                              </ul>
+                          </div>
+                          <div class="btn-wrap">
+                              <a href="#" class="btn secondary-btn" title="Visit Website">Visit
+                                  website</a>
+                              <a href="#" class="btn btn-primary" title="Get Direction">Get
+                                  Direction</a>
+                          </div>
+                      </div>
+                      <div class="custom-location-card">
+                          <div class="content-block">
+                              <div class="title-block">
+                                  <h4>HearClear Solutions</h4>
+                                  <span>8km</span>
+                              </div>
+                              <ul class="icon-list">
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'location-icon.svg' | asset_url }}" alt="Location Icon">
+                                      </em>
+                                      <span>
+                                          Sadar Bazar Rd, Sector 12, Gurgaon
+                                      </span>
+                                  </li>
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'phone-icon.svg' | asset_url }}" alt="Phone Icon">
+                                      </em>
+                                      <a href="tel:+91 9711987395">+91 9711987395</a>
+                                  </li>
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'web-icon.svg' | asset_url }}" alt="Web Icon">
+                                      </em>
+                                      <a href=""
+                                          title="www.hearclearsolutions.in">www.hearclearsolutions.in</a>
+                                  </li>
+                              </ul>
+                          </div>
+                          <div class="btn-wrap">
+                              <a href="#" class="btn secondary-btn" title="Visit Website">Visit
+                                  website</a>
+                              <a href="#" class="btn btn-primary" title="Get Direction">Get
+                                  Direction</a>
+                          </div>
+                      </div>
+                      <div class="custom-location-card">
+                          <div class="content-block">
+                              <div class="title-block">
+                                  <h4>Tech Universe</h4>
+                                  <span>12km</span>
+                              </div>
+                              <ul class="icon-list">
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'location-icon.svg' | asset_url }}" alt="Location Icon">
+                                      </em>
+                                      <span>
+                                          Sector 12, Jacob Pura Rd, Gurgaon
+                                      </span>
+                                  </li>
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'phone-icon.svg' | asset_url }}" alt="Phone Icon">
+                                      </em>
+                                      <a href="tel:+91 9845964875">+91 9845964875</a>
+                                  </li>
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'web-icon.svg' | asset_url }}" alt="Web Icon">
+                                      </em>
+                                      <a href="" title="www.techuniverse.com">www.techuniverse.com</a>
+                                  </li>
+                              </ul>
+                          </div>
+                          <div class="btn-wrap">
+                              <a href="#" class="btn secondary-btn" title="Visit Website">Visit
+                                  website</a>
+                              <a href="#" class="btn btn-primary" title="Get Direction">Get
+                                  Direction</a>
+                          </div>
+                      </div>
+                      <div class="custom-location-card">
+                          <div class="content-block">
+                              <div class="title-block">
+                                  <h4>Electronics Mart</h4>
+                                  <span>14km</span>
+                              </div>
+                              <ul class="icon-list">
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'location-icon.svg' | asset_url }}" alt="Location Icon">
+                                      </em>
+                                      <span>
+                                          Sector 12, Jacob Pura Rd, Gurgaon
+                                      </span>
+                                  </li>
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'phone-icon.svg' | asset_url }}" alt="Phone Icon">
+                                      </em>
+                                      <a href="tel:+91 9845964875">+91 9845964875</a>
+                                  </li>
+                                  <li>
+                                      <em>
+                                          <img src="{{ 'web-icon.svg' | asset_url }}" alt="Web Icon">
+                                      </em>
+                                      <a href="" title="www.techuniverse.com">www.techuniverse.com</a>
+                                  </li>
+                              </ul>
+                          </div>
+                          <div class="btn-wrap">
+                              <a href="#" class="btn secondary-btn" title="Visit Website">Visit
+                                  website</a>
+                              <a href="#" class="btn btn-primary" title="Get Direction">Get
+                                  Direction</a>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+              <div class="right-block">
+                  <div class="map">
+                      <img src="{{ 'map.png' | asset_url }}" alt="Map">
+                  </div>
+              </div>
+          </div>
+      </div>
+    </section>
   </div>
-</section>
 </div>
+
 
 
 {% schema %}
