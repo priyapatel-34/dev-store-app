@@ -1,5 +1,10 @@
 {{ 'authorized-locator.css' | asset_url | stylesheet_tag }}
-{{ 'authorized-locator.js' | asset_url | script_tag }}
+
+<script>
+  window.RETAILER_API_URL = "https://spatial-float-sustained-cited.trycloudflare.com";
+</script>
+
+<script src="{{ 'authorized-locator.js' | asset_url }}" defer></script>
 
 <div class="authorized-locator-page">
 
@@ -62,7 +67,7 @@
                         <span class="active">{{ page.title }}</span>
                     </li>
                 </ul>
-                <a class="breadcrumbs-link mobile-show" href="/" title="Home">
+                <a class="breadcrumbs-link mobile-show" href="{{ routes.root_url }}" title="Home">
                     <img src="//us.sennheiser-hearing.com/cdn/shop/files/back-button_5893f2d0-6563-4919-ab22-b7ce9e39eb43.svg?v=1759723589"
                         alt="">
                     <span>Home</span>
@@ -118,7 +123,7 @@
                       <h3>Dealers near "Gurgaon"</h3>
                       <p>Showing 4 authorized locations within 25 km</p>
                   </div>
-                  <div class="lower-block">
+                  <div class="lower-block" id="retailers-list">
                       <div class="custom-location-card">
                           <div class="content-block">
                               <div class="title-block">

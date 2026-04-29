@@ -361,7 +361,7 @@ const ImportCSVModal = ({ open, onClose, onSuccess }) => {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/retailers/import", {
+      const res = await fetch("/app/retailers/import", {
         method: "POST",
         body: formData,
       });
@@ -612,7 +612,7 @@ const RetailersManager = () => {
   const fetchRetailers = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/retailers");
+      const res = await fetch("/app/retailers");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.success) setRetailers(data.data);
@@ -632,7 +632,7 @@ const RetailersManager = () => {
     if (Object.keys(errors).length > 0) { setNewRetailerErrors(errors); return; }
     try {
       setIsCreating(true);
-      const res = await fetch("/api/retailers", {
+      const res = await fetch("/app/retailers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newRetailer),
@@ -664,7 +664,7 @@ const RetailersManager = () => {
     if (Object.keys(errors).length > 0) { setEditRetailerErrors(errors); return; }
     try {
       setIsSaving(true);
-      const res = await fetch(`/api/retailers/${editingRetailer.id}`, {
+      const res = await fetch(`/app/retailers/${editingRetailer.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editingRetailer),
@@ -689,7 +689,7 @@ const RetailersManager = () => {
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
-      const res = await fetch(`/api/retailers/${deletingRetailer.id}`, { method: "DELETE" });
+      const res = await fetch(`/app/retailers/${deletingRetailer.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       await fetchRetailers();
       setDeletingRetailer(null);

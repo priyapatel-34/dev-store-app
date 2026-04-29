@@ -1,6 +1,6 @@
 import fs from "fs";
 import csv from "csv-parser";
-import { pool } from "../db/db.js";
+import { pool } from "../../db/db.js";
 
 const cleanText = (val) => {
   if (val === undefined || val === null) return null;

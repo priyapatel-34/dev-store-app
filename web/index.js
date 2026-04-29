@@ -8,7 +8,7 @@ import shopify from "./shopify.js";
 import { initDb } from "./db/initDb.js";
 import PrivacyWebhookHandlers from "./privacy.js";
 import retailersRoutes from "./routes/admin/retailers.routes.js";
-
+import storeRetailersRoutes from "./routes/storefront/retailer.routes.js";
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
 const STATIC_PATH =
@@ -34,14 +34,14 @@ app.get(
 
       await pool.query(
         `
-        INSERT INTO stores (shop_domain, access_token, is_installed)
+        INSERT INTO shops (shop_domain, access_token, is_installed)
         VALUES ($1, $2, true)
         ON CONFLICT (shop_domain)
         DO UPDATE SET
           access_token = EXCLUDED.access_token,
           is_installed = true
         `,
-        [session.shop, session.accessToken]
+        [session.shop, session.accessToken,session.scope]
       );
 
       console.log("✅ App installed:", session.shop);
@@ -62,6 +62,13 @@ app.post(
   shopify.processWebhooks({ webhookHandlers: PrivacyWebhookHandlers })
 );
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+await initDb();
+
+app.use("/app/retailers",  shopify.validateAuthenticatedSession(), retailersRoutes);
+app.use("/retailers", storeRetailersRoutes);
 /* ---------------- AUTH MIDDLEWARE ---------------- */
 
 app.use("/api/*", shopify.validateAuthenticatedSession());
@@ -84,15 +91,19 @@ app.get("/api/products/count", async (_req, res) => {
   res.json({ count: data.data.productsCount.count });
 });
 
-/* ---------------- RETAILER API ---------------- */
-
-app.use("/api/retailers", retailersRoutes);
-
 /* ---------------- STATIC ---------------- */
 
 app.use(shopify.cspHeaders());
 
 app.use(serveStatic(STATIC_PATH, { index: false }));
+
+console.log("ENV CHECK:");
+console.log("API KEY:", process.env.SHOPIFY_API_KEY);
+console.log("API SECRET:", process.env.SHOPIFY_API_SECRET);
+console.log("port:", process.env.PORT);
+
+console.log("HOST:", process.env.HOST);
+console.log("SCOPES:", process.env.SCOPES);
 
 app.use("/*", shopify.ensureInstalledOnShop(), (req, res) => {
   return res

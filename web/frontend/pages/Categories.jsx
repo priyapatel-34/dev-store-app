@@ -48,7 +48,7 @@ const Categories = () => {
         try {
             setLoading(true);
 
-            const res = await fetch("/api/categories");
+            const res = await fetch("/app/categories");
             const data = await res.json();
 
             if (data.success) {
@@ -76,7 +76,7 @@ const Categories = () => {
 
     const createCategory = async () => {
             try {
-              const res = await fetch("/api/retailers", {
+              const res = await fetch("/app/retailers", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(newRetailer),
@@ -100,7 +100,7 @@ const Categories = () => {
         try {
             if (isCreating) {
                 // CREATE
-                await fetch("/api/categories", {
+                await fetch("/app/categories", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -111,7 +111,7 @@ const Categories = () => {
                 });
             } else {
                 // UPDATE
-                await fetch(`/api/categories/${editingCategory.id}`, {
+                await fetch(`/app/categories/${editingCategory.id}`, {
                     method: "PUT",
                     headers: {
                         "Content-Type": "application/json",
@@ -135,7 +135,7 @@ const Categories = () => {
         if (!deletingCategory) return;
 
         try {
-            await fetch(`/api/categories/${deletingCategory.id}`, {
+            await fetch(`/app/categories/${deletingCategory.id}`, {
                 method: "DELETE",
             });
 
