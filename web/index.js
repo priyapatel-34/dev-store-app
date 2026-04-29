@@ -64,7 +64,6 @@ app.post(
 
 /* ---------------- AUTH MIDDLEWARE ---------------- */
 
-app.use("/api/*", shopify.validateAuthenticatedSession());
 
 /* ---------------- SAMPLE API ---------------- */
 

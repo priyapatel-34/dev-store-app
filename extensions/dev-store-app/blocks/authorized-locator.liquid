@@ -57,6 +57,31 @@
         <span>{{ page.title }}</span>
       </div>
     </section>
+    <section class="section-wrapper">
+        <div class="container">
+            <nav class="breadcrumbs-nav">
+                <ul class="breadcrumbs-items mobile-hide">
+                    <li class="breadcrumbs-item">
+                        <a class="breadcrumbs-link" href="/" title="Home"><span>Home</span></a>
+                    </li>
+
+                    <li class="breadcrumbs-item">
+                        <span class="active">Authorized Dealer Locator</span>
+                    </li>
+
+                </ul>
+
+                <a class="breadcrumbs-link mobile-show" href="/" title="Home">
+
+                    <img src="//us.sennheiser-hearing.com/cdn/shop/files/back-button_5893f2d0-6563-4919-ab22-b7ce9e39eb43.svg?v=1759723589"
+                        alt="">
+
+                    <span>Home</span>
+                </a>
+
+            </nav>
+        </div>
+    </section>
 
     <section class="section-wrapper">
       <div class="container">
@@ -75,23 +100,25 @@
                       </div>
                   </div>
                   <div class="right-wrap">
-                      <div class="dropdown" id="categoryDropdown">
-                          <div class="dropdown-btn">Select Category</div>
-                          <div class="dropdown-list">
-                              <div>Consumer Headphones</div>
-                              <div>Hearing Solutions</div>
-                              <div>TV Listening</div>
-                              <div>Soundbars</div>
-                              <div>Accessories</div>
-                          </div>
-                      </div>
-                      <div class="dropdown radius" id="radiusDropdown">
-                          <div class="dropdown-btn">Radius</div>
-                          <div class="dropdown-list">
-                              <div>5 km</div>
-                              <div>10 km</div>
-                              <div>25 km</div>
-                          </div>
+                      <div class="dropdowns-wrap">
+                        <div class="dropdown category" id="categoryDropdown">
+                            <div class="dropdown-btn">Select Category</div>
+                            <div class="dropdown-list">
+                                <div>Consumer Headphones</div>
+                                <div>Hearing Solutions</div>
+                                <div>TV Listening</div>
+                                <div>Soundbars</div>
+                                <div>Accessories</div>
+                            </div>
+                        </div>
+                        <div class="dropdown radius" id="radiusDropdown">
+                            <div class="dropdown-btn">Radius</div>
+                            <div class="dropdown-list">
+                                <div>5 km</div>
+                                <div>10 km</div>
+                                <div>25 km</div>
+                            </div>
+                        </div>
                       </div>
                       <button class="btn btn-primary">Search</button>
                   </div>
@@ -253,7 +280,7 @@
               </div>
               <div class="right-block">
                   <div class="map">
-                      <img src="{{ 'map.png' | asset_url }}" alt="Map">
+                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d112225.92027123342!2d76.92377209726558!3d28.477739399999994!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d191ed32d42bd%3A0xa0ab4352e111b02f!2sSennheiser%20Electronics%20India%20Private%20Limited!5e0!3m2!1sen!2sin!4v1777380842039!5m2!1sen!2sin" width="2000" height="800" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
                   </div>
               </div>
           </div>
