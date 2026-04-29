@@ -51,34 +51,22 @@
 
   </section>
   <div class="content-sections">
-    <section class="breadcrumb-section section-wrapper">
-      <div class="container">
-        <a href="{{ routes.root_url }}">Home</a> /
-        <span>{{ page.title }}</span>
-      </div>
-    </section>
-    <section class="section-wrapper">
+    <section class="section-wrapper breadcrumb-section">
         <div class="container">
             <nav class="breadcrumbs-nav">
                 <ul class="breadcrumbs-items mobile-hide">
                     <li class="breadcrumbs-item">
-                        <a class="breadcrumbs-link" href="/" title="Home"><span>Home</span></a>
+                        <a class="breadcrumbs-link" href="{{ routes.root_url }}" title="Home"><span>Home</span></a>
                     </li>
-
                     <li class="breadcrumbs-item">
-                        <span class="active">Authorized Dealer Locator</span>
+                        <span class="active">{{ page.title }}</span>
                     </li>
-
                 </ul>
-
                 <a class="breadcrumbs-link mobile-show" href="/" title="Home">
-
                     <img src="//us.sennheiser-hearing.com/cdn/shop/files/back-button_5893f2d0-6563-4919-ab22-b7ce9e39eb43.svg?v=1759723589"
                         alt="">
-
                     <span>Home</span>
                 </a>
-
             </nav>
         </div>
     </section>
@@ -102,7 +90,7 @@
                   <div class="right-wrap">
                       <div class="dropdowns-wrap">
                         <div class="dropdown category" id="categoryDropdown">
-                            <div class="dropdown-btn">Select Category</div>
+                            <div class="dropdown-btn"><span class="placeholder">Select Category</span></div>
                             <div class="dropdown-list">
                                 <div>Consumer Headphones</div>
                                 <div>Hearing Solutions</div>
@@ -112,7 +100,7 @@
                             </div>
                         </div>
                         <div class="dropdown radius" id="radiusDropdown">
-                            <div class="dropdown-btn">Radius</div>
+                            <div class="dropdown-btn"><span class="placeholder">Radius</span></div>
                             <div class="dropdown-list">
                                 <div>5 km</div>
                                 <div>10 km</div>

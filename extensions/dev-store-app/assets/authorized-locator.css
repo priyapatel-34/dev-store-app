@@ -239,6 +239,7 @@
     font-weight: 500;
     font-size: 16px;
     line-height: 1.2;
+    text-overflow: ellipsis;
 }
 
 .dealer-locations-section .dropdown-btn .placeholder,
@@ -431,6 +432,12 @@
 }
 
 @media (max-width: 667px) {
+    .hero-banner-section {
+        display: none;
+    }
+    .authorized-locator-page .content-sections {
+        padding: 94px var(--gutter) 60px;
+    }
     .dealer-locations-section .dropdowns-wrap {
         flex: 0 0 100%;
         max-width: 100%;
@@ -441,6 +448,17 @@
     .dealer-locations-section .dropdown.category,
     .dealer-locations-section .search-container .btn {
         flex: 1;
+        max-width: 100%;
+    }
+
+    .dealer-locations-section .search-container .btn {
+        margin-top: 4px;
+    }
+}
+@media (max-width: 480px) {
+    .dealer-locations-section .dropdown.category,
+    .dealer-locations-section .dropdown {
+        flex: 0 0 100%;
         max-width: 100%;
     }
 }

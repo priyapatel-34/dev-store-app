@@ -7,7 +7,7 @@ import { pool } from "./db/db.js";
 import shopify from "./shopify.js";
 import { initDb } from "./db/initDb.js";
 import PrivacyWebhookHandlers from "./privacy.js";
-import retailersRoutes from "./routes/retailers.routes.js";
+import retailersRoutes from "./routes/admin/retailers.routes.js";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
@@ -64,6 +64,7 @@ app.post(
 
 /* ---------------- AUTH MIDDLEWARE ---------------- */
 
+app.use("/api/*", shopify.validateAuthenticatedSession());
 
 /* ---------------- SAMPLE API ---------------- */
 
