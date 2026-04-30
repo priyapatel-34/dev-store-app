@@ -1,4 +1,4 @@
-const pool = require("../config/db");
+import { pool } from "../../db/db.js";
 
 export async function getCategories(req, res){
     try {

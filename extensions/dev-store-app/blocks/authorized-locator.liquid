@@ -1,7 +1,7 @@
 {{ 'authorized-locator.css' | asset_url | stylesheet_tag }}
 
 <script>
-  window.RETAILER_API_URL = "https://spatial-float-sustained-cited.trycloudflare.com";
+  window.RETAILER_API_URL = "https://commissions-dual-technical-solely.trycloudflare.com";
 </script>
 
 <script src="{{ 'authorized-locator.js' | asset_url }}" defer></script>
@@ -88,8 +88,16 @@
           <div class="dealer-location-filters-block">
               <div class="search-container">
                   <div class="left-wrap">
-                      <div class="input-box">
-                          <input type="text" placeholder="Gurgaon, Delhi">
+                      <div class="input-box dropdown">
+                          <input type="text" placeholder="Gurgaon, Delhi" class="dropdown-btn">
+                          <div class="dropdown-list">
+                                <div>Consumer Headphones</div>
+                                <div>Hearing Solutions</div>
+                                <div>TV Listening</div>
+                                <div>Soundbars</div>
+                                <div>Accessories</div>
+                            </div>
+                            <button class="current-location-btn" title="Current Location"></button>
                       </div>
                   </div>
                   <div class="right-wrap">

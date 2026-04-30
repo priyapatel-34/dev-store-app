@@ -1,3 +1,4 @@
+import { pool } from "../../db/db.js";
 
 async function getShopIdFromSession(res) {
     const session = res.locals.shopify?.session;
@@ -22,7 +23,8 @@ async function getShopIdFromSession(res) {
    
   export async function getRetailers(req, res) {
     try {
-      const store_id = await getShopIdFromSession(res);
+      // const store_id =  await getShopIdFromSession(res);
+      const store_id = 1;
    
       const { country, category } = req.query;
    

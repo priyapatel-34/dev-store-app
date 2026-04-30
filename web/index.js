@@ -1,5 +1,6 @@
 // @ts-check
 import { join } from "path";
+import cors from "cors";
 import { readFileSync } from "fs";
 import express from "express";
 import serveStatic from "serve-static";
@@ -18,6 +19,7 @@ const STATIC_PATH =
 
 const app = express();
 await initDb();
+app.use(cors());
 app.use(express.json());
 
 app.get(shopify.config.auth.path, shopify.auth.begin());
