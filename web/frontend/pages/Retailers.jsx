@@ -23,7 +23,7 @@ import {
   Spinner,
 } from "@shopify/polaris";
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 7;
 
 const RETAILER_TYPE_OPTIONS = [
   { label: "Select type…", value: "" },
