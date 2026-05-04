@@ -36,17 +36,17 @@ app.get(
 
       await pool.query(
         `
-        INSERT INTO shops (shop_domain, access_token, is_installed)
+        INSERT INTO stores (shop_domain, access_token, is_installed)
         VALUES ($1, $2, true)
         ON CONFLICT (shop_domain)
         DO UPDATE SET
           access_token = EXCLUDED.access_token,
           is_installed = true
         `,
-        [session.shop, session.accessToken,session.scope]
+        [session.stores, session.accessToken,session.scope]
       );
 
-      console.log("✅ App installed:", session.shop);
+      console.log("✅ App installed:", session.stores);
 
       return shopify.redirectToShopifyOrAppRoot();
 
@@ -71,6 +71,7 @@ await initDb();
 
 app.use("/app/retailers",  shopify.validateAuthenticatedSession(), retailersRoutes);
 app.use("/retailers", storeRetailersRoutes);
+app.get("/categories", storeRetailersRoutes);
 /* ---------------- AUTH MIDDLEWARE ---------------- */
 
 app.use("/api/*", shopify.validateAuthenticatedSession());

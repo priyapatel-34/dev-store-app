@@ -36,9 +36,9 @@ async function getShopIdFromSession(res) {
   }
 
   const shopDomain = session.shop;
-
+  console.log("SHOP DOMAIN:", shopDomain);
   const { rows } = await pool.query(
-    `SELECT id FROM shops WHERE shop_domain = $1 AND is_installed = TRUE`,
+    `SELECT id FROM stores WHERE shop_domain = $1 AND is_installed = TRUE`,
     [shopDomain]
   );
 
@@ -459,7 +459,7 @@ export async function importRetailersCSV(req, res) {
     return res.status(400).json({ success: false, error: "CSV file is empty." });
   }
 
-  const store_id = req.store_id;
+  const store_id = await getShopIdFromSession(res);
 
   for (let i = 0; i < results.length; i++) {
     const row = results[i];

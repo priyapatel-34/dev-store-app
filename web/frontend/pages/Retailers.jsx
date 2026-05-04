@@ -133,8 +133,8 @@ const downloadCSVTemplate = () => {
   const exampleRow = [
     "Sample Store",
     "India",
-    "offline",   
-    "active",  
+    "offline",
+    "active",
     "123 Main St",
     "Suite 4",
     "Mumbai",
@@ -399,11 +399,11 @@ const ImportCSVModal = ({ open, onClose, onSuccess }) => {
         result
           ? { content: "Done", onAction: handleClose }
           : {
-              content: "Import",
-              onAction: handleImport,
-              loading: isUploading,
-              disabled: !file || isUploading,
-            }
+            content: "Import",
+            onAction: handleImport,
+            loading: isUploading,
+            disabled: !file || isUploading,
+          }
       }
       secondaryActions={
         result
@@ -525,8 +525,8 @@ const ImportCSVModal = ({ open, onClose, onSuccess }) => {
                     result.failed === 0
                       ? "Import completed successfully"
                       : result.inserted > 0
-                      ? "Import completed with some errors"
-                      : "Import failed — no rows were inserted"
+                        ? "Import completed with some errors"
+                        : "Import failed — no rows were inserted"
                   }
                 >
                   <div gap="100">
@@ -659,6 +659,26 @@ const RetailersManager = () => {
     setNewRetailerErrors({});
   };
 
+  const handleBulkDelete = async () => {
+    try {
+      setIsDeleting(true);
+
+      await Promise.all(
+        selectedResources.map((id) =>
+          fetch(`/app/retailers/${id}`, { method: "DELETE" })
+        )
+      );
+
+      await fetchRetailers();
+      showToast("Selected retailers deleted successfully");
+    } catch (err) {
+      console.error("bulk delete error:", err);
+      showToast("Failed to delete selected retailers", true);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleSave = async () => {
     const errors = validateRetailerData(editingRetailer);
     if (Object.keys(errors).length > 0) { setEditRetailerErrors(errors); return; }
@@ -726,7 +746,17 @@ const RetailersManager = () => {
       <IndexTable.Cell>{r.phone || "—"}</IndexTable.Cell>
       <IndexTable.Cell>{r.email || "—"}</IndexTable.Cell>
       <IndexTable.Cell>{r.website_url || "—"}</IndexTable.Cell>
-      <IndexTable.Cell>{r.google_maps_link || "—"}</IndexTable.Cell>
+      <IndexTable.Cell>
+        {r.google_maps_link ? (
+          <a href={r.google_maps_link} target="_blank" rel="noopener noreferrer">
+            {r.google_maps_link.length > 30
+              ? r.google_maps_link.slice(0, 30) + "..."
+              : r.google_maps_link}
+          </a>
+        ) : (
+          "—"
+        )}
+      </IndexTable.Cell>
       <IndexTable.Cell>{r.opening_hours || "—"}</IndexTable.Cell>
       <IndexTable.Cell>{r.notes || "—"}</IndexTable.Cell>
       <IndexTable.Cell>
@@ -738,133 +768,139 @@ const RetailersManager = () => {
     </IndexTable.Row>
   ));
   return (
-      <Page
-        title="Retailers"
-        subtitle="Manage retailer locations for your Shopify extension app."
-        fullWidth
-        primaryAction={{ content: "Add Retailer", onAction: () => setIsCreateOpen(true) }}
-        secondaryActions={[
-          { content: "Import CSV", onAction: () => setIsImportOpen(true) },
-        ]}
-        titleMetadata={<Badge tone="info">{`${retailers.length} total`}</Badge>}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {selectedResources.length > 0 && (
-            <Banner tone="info">
+    <Page
+      title="Retailers"
+      subtitle="Manage retailer locations for your Shopify extension app."
+      fullWidth
+      primaryAction={{ content: "Add Retailer", onAction: () => setIsCreateOpen(true) }}
+      secondaryActions={[
+        { content: "Import CSV", onAction: () => setIsImportOpen(true) },
+      ]}
+      titleMetadata={<Badge tone="info">{`${retailers.length} total`}</Badge>}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        {selectedResources.length > 0 && (
+          <Banner tone="info">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <Text as="p">
-                {selectedResources.length} retailer{selectedResources.length === 1 ? "" : "s"} selected on this page.
+                {selectedResources.length} retailer{selectedResources.length > 1 ? "s" : ""} selected
               </Text>
-            </Banner>
-          )}
 
-          <Card padding="0">
-            {loading ? (
-              <div style={{ padding: "40px", textAlign: "center" }}>
-                <Spinner accessibilityLabel="Loading retailers" size="large" />
-              </div>
-            ) : retailers.length === 0 ? (
-              <EmptyState
-                heading="No retailers yet"
-                image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-              >
-                <p>Add retailer data manually or import a CSV file to get started.</p>
-              </EmptyState>
-            ) : (
-              <>
-                <IndexTable
-                  resourceName={{ singular: "retailer", plural: "retailers" }}
-                  itemCount={paginatedRetailers.length}
-                  selectedItemsCount={allResourcesSelected ? "All" : selectedResources.length}
-                  onSelectionChange={handleSelectionChange}
-                  headings={TABLE_HEADINGS}
-                >
-                  {rowMarkup}
-                </IndexTable>
-
-                <Box padding="400">
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text as="p" tone="subdued" style={{marginLeft: "15px"}}>
-                      Page {page} of {totalPages}
-                    </Text>
-                    <Pagination
-                      hasPrevious={page > 1}
-                      onPrevious={() => setPage((p) => Math.max(1, p - 1))}
-                      hasNext={page < totalPages}
-                      onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    />
-                  </div>
-                </Box>
-              </>
-            )}
-          </Card>
-        </div>
-
-        <ImportCSVModal
-          open={isImportOpen}
-          onClose={() => setIsImportOpen(false)}
-          onSuccess={fetchRetailers}
-        />
-
-        <Modal
-          open={isCreateOpen}
-          onClose={handleCloseCreate}
-          title="Add Retailer"
-          primaryAction={{ content: "Create", onAction: handleCreate, loading: isCreating }}
-          secondaryActions={[{ content: "Cancel", onAction: handleCloseCreate }]}
-          large
-        >
-          <Modal.Section>
-            <RetailerForm
-              retailer={newRetailer}
-              onChange={(field, value) => setNewRetailer((prev) => ({ ...prev, [field]: value }))}
-              errors={newRetailerErrors}
-            />
-          </Modal.Section>
-        </Modal>
-
-
-        <Modal
-          open={Boolean(editingRetailer)}
-          onClose={handleCloseEdit}
-          title={editingRetailer ? `Edit: ${editingRetailer.name}` : "Edit Retailer"}
-          primaryAction={{ content: "Save", onAction: handleSave, loading: isSaving }}
-          secondaryActions={[{ content: "Cancel", onAction: handleCloseEdit }]}
-          large
-        >
-          <Modal.Section>
-            {editingRetailer && (
-              <div gap="400">
-                <TextField label="Retailer ID" value={String(editingRetailer.id)} disabled autoComplete="off" />
-                <RetailerForm
-                  retailer={editingRetailer}
-                  onChange={(field, value) => setEditingRetailer((prev) => ({ ...prev, [field]: value }))}
-                  errors={editRetailerErrors}
-                />
-              </div>
-            )}
-          </Modal.Section>
-        </Modal>
-
-        <Modal
-          open={Boolean(deletingRetailer)}
-          onClose={() => setDeletingRetailer(null)}
-          title="Delete Retailer"
-          primaryAction={{ content: "Delete", destructive: true, onAction: handleDelete, loading: isDeleting }}
-          secondaryActions={[{ content: "Cancel", onAction: () => setDeletingRetailer(null) }]}
-        >
-          <Modal.Section>
-            <Text as="p">
-              Are you sure you want to delete{" "}
-              <Text as="span" fontWeight="semibold">{deletingRetailer?.name}</Text>?
-              This action cannot be undone.
-            </Text>
-          </Modal.Section>
-        </Modal>
-
-        {toast && (
-          <Toast content={toast.message} error={toast.error} onDismiss={() => setToast(null)} />
+              <Button tone="critical" onClick={() => handleBulkDelete()}>
+                Delete Selected
+              </Button>
+            </div>
+          </Banner>
         )}
-      </Page>
+
+        <Card padding="0">
+          {loading ? (
+            <div style={{ padding: "40px", textAlign: "center" }}>
+              <Spinner accessibilityLabel="Loading retailers" size="large" />
+            </div>
+          ) : retailers.length === 0 ? (
+            <EmptyState
+              heading="No retailers yet"
+              image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+            >
+              <p>Add retailer data manually or import a CSV file to get started.</p>
+            </EmptyState>
+          ) : (
+            <>
+              <IndexTable
+                resourceName={{ singular: "retailer", plural: "retailers" }}
+                itemCount={paginatedRetailers.length}
+                selectedItemsCount={allResourcesSelected ? "All" : selectedResources.length}
+                onSelectionChange={handleSelectionChange}
+                headings={TABLE_HEADINGS}
+              >
+                {rowMarkup}
+              </IndexTable>
+
+              <Box padding="400">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text as="p" tone="subdued" style={{marginLeft: "15px"}}>
+                    Page {page} of {totalPages}
+                  </Text>
+                  <Pagination
+                    hasPrevious={page > 1}
+                    onPrevious={() => setPage((p) => Math.max(1, p - 1))}
+                    hasNext={page < totalPages}
+                    onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  />
+                </div>
+              </Box>
+            </>
+          )}
+        </Card>
+      </div>
+
+      <ImportCSVModal
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onSuccess={fetchRetailers}
+      />
+
+      <Modal
+        open={isCreateOpen}
+        onClose={handleCloseCreate}
+        title="Add Retailer"
+        primaryAction={{ content: "Create", onAction: handleCreate, loading: isCreating }}
+        secondaryActions={[{ content: "Cancel", onAction: handleCloseCreate }]}
+        large
+      >
+        <Modal.Section>
+          <RetailerForm
+            retailer={newRetailer}
+            onChange={(field, value) => setNewRetailer((prev) => ({ ...prev, [field]: value }))}
+            errors={newRetailerErrors}
+          />
+        </Modal.Section>
+      </Modal>
+
+
+      <Modal
+        open={Boolean(editingRetailer)}
+        onClose={handleCloseEdit}
+        title={editingRetailer ? `Edit: ${editingRetailer.name}` : "Edit Retailer"}
+        primaryAction={{ content: "Save", onAction: handleSave, loading: isSaving }}
+        secondaryActions={[{ content: "Cancel", onAction: handleCloseEdit }]}
+        large
+      >
+        <Modal.Section>
+          {editingRetailer && (
+            <div gap="400">
+              <TextField label="Retailer ID" value={String(editingRetailer.id)} disabled autoComplete="off" />
+              <RetailerForm
+                retailer={editingRetailer}
+                onChange={(field, value) => setEditingRetailer((prev) => ({ ...prev, [field]: value }))}
+                errors={editRetailerErrors}
+              />
+            </div>
+          )}
+        </Modal.Section>
+      </Modal>
+
+      <Modal
+        open={Boolean(deletingRetailer)}
+        onClose={() => setDeletingRetailer(null)}
+        title="Delete Retailer"
+        primaryAction={{ content: "Delete", destructive: true, onAction: handleDelete, loading: isDeleting }}
+        secondaryActions={[{ content: "Cancel", onAction: () => setDeletingRetailer(null) }]}
+      >
+        <Modal.Section>
+          <Text as="p">
+            Are you sure you want to delete{" "}
+            <Text as="span" fontWeight="semibold">{deletingRetailer?.name}</Text>?
+            This action cannot be undone.
+          </Text>
+        </Modal.Section>
+      </Modal>
+
+      {toast && (
+        <Toast content={toast.message} error={toast.error} onDismiss={() => setToast(null)} />
+      )}
+    </Page>
   );
 };
 

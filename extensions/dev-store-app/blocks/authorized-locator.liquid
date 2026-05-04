@@ -1,7 +1,11 @@
 {{ 'authorized-locator.css' | asset_url | stylesheet_tag }}
 
 <script>
-  window.RETAILER_API_URL = "https://commissions-dual-technical-solely.trycloudflare.com";
+  window.STORE_ID = {{ shop.id }};
+</script>
+
+<script>
+  window.RETAILER_API_URL = "https://attraction-clock-cant-gabriel.trycloudflare.com";
 </script>
 
 <script src="{{ 'authorized-locator.js' | asset_url }}" defer></script>
@@ -104,20 +108,18 @@
                       <div class="dropdowns-wrap">
                         <div class="dropdown category" id="categoryDropdown">
                             <div class="dropdown-btn"><span class="placeholder">Select Category</span></div>
-                            <div class="dropdown-list">
-                                <div>Consumer Headphones</div>
-                                <div>Hearing Solutions</div>
-                                <div>TV Listening</div>
-                                <div>Soundbars</div>
-                                <div>Accessories</div>
+                           <div class="dropdown-list">
+                                <div>Loading...</div>
                             </div>
                         </div>
                         <div class="dropdown radius" id="radiusDropdown">
                             <div class="dropdown-btn"><span class="placeholder">Radius</span></div>
                             <div class="dropdown-list">
-                                <div>5 km</div>
-                                <div>10 km</div>
-                                <div>25 km</div>
+                                <div>05 km / miles</div>
+                                <div>10 km / miles</div>
+                                <div>15 km / miles</div>
+                                <div>20 km / miles</div>
+                                <div>25 km / miles</div>
                             </div>
                         </div>
                       </div>

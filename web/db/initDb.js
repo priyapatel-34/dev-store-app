@@ -5,7 +5,7 @@ export async function initDb() {
     console.log("🔧 Initializing PostgreSQL DB...");
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS shops (
+      CREATE TABLE IF NOT EXISTS stores (
         id SERIAL PRIMARY KEY,
         shop_domain TEXT UNIQUE NOT NULL,
         access_token TEXT NOT NULL,
