@@ -93,7 +93,7 @@
               <div class="search-container">
                   <div class="left-wrap">
                       <div class="input-box dropdown">
-                          <input type="text" placeholder="Gurgaon, Delhi" class="dropdown-btn">
+                         <input type="text" placeholder="Search City, Postal Code, Address" name="location-address" class="dropdown-btn">
                           <div class="dropdown-list">
                                 <div>Consumer Headphones</div>
                                 <div>Hearing Solutions</div>
@@ -101,7 +101,13 @@
                                 <div>Soundbars</div>
                                 <div>Accessories</div>
                             </div>
-                            <button class="current-location-btn" title="Current Location"></button>
+                            <button class="current-location-btn" title="Current Location" id="current-location-btn"></button>
+                            <button class="reset-location-btn" title="Reset Location" id="reset-location-btn" style="display:none;">Reset</button>
+                            <!-- loader here -->
+                            <div class="location-loader" id="location-loader">
+                                <span class="spinner"></span>
+                                <span class="loader-text">Detecting location...</span>
+                            </div>
                       </div>
                   </div>
                   <div class="right-wrap">
@@ -282,8 +288,7 @@
                   </div>
               </div>
               <div class="right-block">
-                  <div class="map">
-                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d112225.92027123342!2d76.92377209726558!3d28.477739399999994!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390d191ed32d42bd%3A0xa0ab4352e111b02f!2sSennheiser%20Electronics%20India%20Private%20Limited!5e0!3m2!1sen!2sin!4v1777380842039!5m2!1sen!2sin" width="2000" height="800" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                  <div class="map" id="map-container"
                   </div>
               </div>
           </div>
