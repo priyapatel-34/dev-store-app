@@ -23,7 +23,7 @@ export async function getCategories(req, res){
     }
   };
 
-  exports.createCategories = async (req, res) => {
+  export async function createCategories(req, res) {
     try {
       const { name } = req.body;
       const store_id = req.store_id;
@@ -50,7 +50,7 @@ export async function getCategories(req, res){
     }
   };
 
-  exports.updateCategories = async (req, res) => {
+  export async function updateCategories(req, res){
     try {
       const { id } = req.params;
       const { name, is_active } = req.body;
@@ -84,7 +84,7 @@ export async function getCategories(req, res){
     }
   };
 
-exports.deleteCategories = async (req, res) => {
+  export async function deleteCategories(req, res){
     try {
         const { id } = req.params;
 

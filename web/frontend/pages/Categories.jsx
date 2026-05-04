@@ -75,24 +75,24 @@ const Categories = () => {
         useIndexResourceState(paginatedCategories);
 
     const createCategory = async () => {
-            try {
-              const res = await fetch("/app/retailers", {
+        try {
+            const res = await fetch("/app/retailers", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(newRetailer),
-              });
-        
-              const data = await res.json();
-        
-              if (data.success) {
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
                 fetchRetailers();
                 setIsCreateOpen(false);
                 setNewRetailer(emptyRetailer);
-              }
-            } catch (err) {
-              console.error(err);
             }
-          };
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const saveCategory = async () => {
         if (!editingCategory) return;
@@ -234,18 +234,59 @@ const Categories = () => {
             <Modal
                 open={Boolean(editingCategory)}
                 onClose={closeCategoryModal}
-                title={isCreating ? "Create category" : editingCategory ? `Edit ${editingCategory.name}` : "Edit category"}
-                primaryAction={{ content: isCreating ? "Create category" : "Save category", onAction: saveCategory }}
-                secondaryActions={[{ content: "Cancel", onAction: closeCategoryModal }]}
+                title={
+                    isCreating
+                        ? "Create Category"
+                        : editingCategory
+                            ? `Edit ${editingCategory.name}`
+                            : "Edit Category"
+                }
+                primaryAction={{
+                    content: isCreating ? "Create" : "Save",
+                    onAction: saveCategory,
+                }}
+                secondaryActions={[
+                    { content: "Cancel", onAction: closeCategoryModal },
+                ]}
             >
                 <Modal.Section>
                     {editingCategory && (
                         <FormLayout>
-                            <TextField label="Category ID" value={editingCategory.id} onChange={(value) => updateEditingCategory("id", value)} autoComplete="off" disabled={!isCreating} />
-                            <FormLayout.Group condensed>
-                                <TextField label="Name" value={editingCategory.name} onChange={(value) => updateEditingCategory("name", value)} autoComplete="off" />
-                                <Select label="Status" options={["Active", "Inactive"]} value={editingCategory.status} onChange={(value) => updateEditingCategory("status", value)} />
-                            </FormLayout.Group>
+
+                            {/* Header Note */}
+                            <Text as="p" tone="subdued">
+                                {isCreating
+                                    ? "Add a new category for organizing your retailers."
+                                    : "Update category details below."}
+                            </Text>
+
+                            {/* Name Field */}
+                            <TextField
+                                label="Category Name"
+                                value={editingCategory.name}
+                                onChange={(value) =>
+                                    updateEditingCategory("name", value)
+                                }
+                                autoComplete="off"
+                                placeholder="e.g. Headphones"
+                            />
+
+                            {/* Status Dropdown */}
+                            <Select
+                                label="Status"
+                                options={[
+                                    { label: "Active", value: "Active" },
+                                    { label: "Inactive", value: "Inactive" },
+                                ]}
+                                value={editingCategory.status}
+                                onChange={(value) =>
+                                    updateEditingCategory("status", value)
+                                }
+                            />
+
+                            {/* Optional Divider Space */}
+                            <div style={{ marginTop: "8px" }} />
+
                         </FormLayout>
                     )}
                 </Modal.Section>
