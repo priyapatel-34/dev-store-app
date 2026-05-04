@@ -9,8 +9,12 @@ import shopify from "./shopify.js";
 import { initDb } from "./db/initDb.js";
 import PrivacyWebhookHandlers from "./privacy.js";
 import retailersRoutes from "./routes/admin/retailers.routes.js";
-import categoriesRoutes from "./routes/admin/categories.routes.js"
+import categoriesRoutes from "./routes/admin/categories.routes.js";
+import settingsRoutes from "./routes/admin/settings.routes.js";
 import storeRetailersRoutes from "./routes/storefront/retailer.routes.js";
+import storeCategoriesRoutes from "./routes/storefront/retailer.routes.js";
+import storeSettingsRoutes from "./routes/storefront/retailer.routes.js";
+
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
 const STATIC_PATH =
@@ -20,7 +24,7 @@ const STATIC_PATH =
 
 const app = express();
 await initDb();
-app.use(cors());
+app.use(cors({ origin: true }));
 app.use(express.json());
 
 app.get(shopify.config.auth.path, shopify.auth.begin());
@@ -72,8 +76,11 @@ await initDb();
 
 app.use("/app/retailers", shopify.validateAuthenticatedSession(), retailersRoutes);
 app.use("/app/categories", shopify.validateAuthenticatedSession(), categoriesRoutes);
+app.use("/app/settings", shopify.validateAuthenticatedSession(), settingsRoutes);
+
 app.use("/retailers", storeRetailersRoutes);
-app.get("/categories", storeRetailersRoutes);
+app.get("/categories", storeCategoriesRoutes);
+app.get("/settings", storeSettingsRoutes);
 /* ---------------- AUTH MIDDLEWARE ---------------- */
 
 app.use("/api/*", shopify.validateAuthenticatedSession());

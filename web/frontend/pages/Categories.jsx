@@ -38,7 +38,8 @@ const Categories = () => {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [editingCategory, setEditingCategory] = useState(null);
-    const [deletingCategory, setDeletingCategory] = useState(null);
+    const [deleteContext, setDeleteContext] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [errors, setErrors] = useState({});
     const pageSize = 10;
@@ -170,27 +171,32 @@ const Categories = () => {
         }
     };
 
-    const deleteCategory = async () => {
-        if (!deletingCategory) return;
-
+    const handleConfirmDelete = async () => {
         try {
-            const res = await fetch(`/app/categories/${deletingCategory.id}`, {
-                method: "DELETE",
-            });
+            setIsDeleting(true);
 
-            const data = await res.json();
-
-            if (!res.ok || !data.success) {
-                throw new Error(data.message || "Failed to delete category");
+            if (deleteContext.type === "single") {
+                const id = Number(deleteContext.items[0].id);
+                await fetch(`/app/categories/${id}`, { method: "DELETE" });
+            } else {
+                await Promise.all(
+                    deleteContext.items.map((id) =>
+                        fetch(`/app/categories/${Number(id)}`, { method: "DELETE" })
+                    )
+                );
             }
 
             await fetchCategories();
-            setDeletingCategory(null);
+            setDeleteContext(null);
+            handleSelectionChange([]);
 
         } catch (err) {
             console.error("Delete Category Error:", err);
+        } finally {
+            setIsDeleting(false);
         }
     };
+
     const openCreateCategory = () => {
         setIsCreating(true);
         setEditingCategory(defaultCategory(categories.length + 1));
@@ -212,7 +218,7 @@ const Categories = () => {
 
         return (
             <IndexTable.Row
-                id={category.id}
+                id={String(category.id)}
                 key={category.id}
                 selected={selectedResources.includes(category.id)}
                 position={index}
@@ -253,7 +259,9 @@ const Categories = () => {
                         <Button
                             size="slim"
                             tone="critical"
-                            onClick={() => setDeletingCategory(category)}
+                            onClick={() =>
+                                setDeleteContext({ type: "single", items: [category] })
+                            }
                         >
                             Delete
                         </Button>
@@ -274,9 +282,23 @@ const Categories = () => {
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 {selectedResources.length > 0 && (
                     <Banner tone="info">
-                        <Text as="p">
-                            {selectedResources.length} categor{selectedResources.length === 1 ? "y" : "ies"} selected on this page.
-                        </Text>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <Text as="p">
+                                {selectedResources.length} categor{selectedResources.length > 1 ? "ies" : "y"} selected
+                            </Text>
+
+                            <Button
+                                tone="critical"
+                                onClick={() =>
+                                    setDeleteContext({
+                                        type: "bulk",
+                                        items: selectedResources,
+                                    })
+                                }
+                            >
+                                Delete Selected
+                            </Button>
+                        </div>
                     </Banner>
                 )}
 
@@ -380,7 +402,6 @@ const Categories = () => {
                                 }
                             />
 
-                            {/* Optional Divider Space */}
                             <div style={{ marginTop: "8px" }} />
 
                         </FormLayout>
@@ -389,21 +410,35 @@ const Categories = () => {
             </Modal>
 
             <Modal
-                open={Boolean(deletingCategory)}
-                onClose={() => setDeletingCategory(null)}
-                title="Delete category"
-                primaryAction={{ content: "Delete category", destructive: true, onAction: deleteCategory }}
-                secondaryActions={[{ content: "Cancel", onAction: () => setDeletingCategory(null) }]}
+                open={Boolean(deleteContext)}
+                onClose={() => setDeleteContext(null)}
+                title="Delete Category"
+                primaryAction={{
+                    content: "Delete",
+                    destructive: true,
+                    onAction: handleConfirmDelete,
+                    loading: isDeleting,
+                }}
+                secondaryActions={[
+                    { content: "Cancel", onAction: () => setDeleteContext(null) },
+                ]}
             >
                 <Modal.Section>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    {deleteContext?.type === "single" ? (
                         <Text as="p">
-                            Are you sure you want to delete <Text as="span" fontWeight="semibold">{deletingCategory?.name}</Text>? This removes the category from the current table.
+                            Are you sure you want to delete{" "}
+                            <Text as="span" fontWeight="semibold">
+                                {deleteContext.items[0]?.name} ?
+                            </Text>
                         </Text>
-                        <Text as="p" tone="subdued">
-                            Category ID: {deletingCategory?.id}
+                    ) : (
+                        <Text as="p">
+                            Are you sure you want to delete{" "}
+                            <Text as="span" fontWeight="semibold">
+                                {deleteContext?.items.length} categories ?
+                            </Text>
                         </Text>
-                    </div>
+                    )}
                 </Modal.Section>
             </Modal>
         </Page>

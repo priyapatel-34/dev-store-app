@@ -1,19 +1,17 @@
 import { pool } from "../../db/db.js";
 
-export async function getCategories(req, res) {
+  export async function getFilters(req, res) {
     try {
   
         const store_id = 1;
   
       const result = await pool.query(
-        `SELECT * FROM categories
-         WHERE store_id = $1 AND is_active = true
+        `SELECT * FROM admin_settings
+         WHERE store_id = $1
          ORDER BY id DESC`,
         [store_id]
       );
-  
-      console.log("CATEGORIES:", result.rows);
-  
+    
       return res.json({ success: true, data: result.rows });
   
     } catch (err) {

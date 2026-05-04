@@ -5,7 +5,7 @@
 </script>
 
 <script>
-  window.RETAILER_API_URL = "https://sodium-synthetic-jimmy-equivalent.trycloudflare.com";
+  window.RETAILER_API_URL = "https://whenever-pig-albums-own.trycloudflare.com";
 </script>
 
 <script src="{{ 'authorized-locator.js' | asset_url }}" defer></script>
@@ -94,13 +94,7 @@
                   <div class="left-wrap">
                       <div class="input-box dropdown">
                          <input type="text" placeholder="Search City, Postal Code, Address" name="location-address" class="dropdown-btn">
-                          <div class="dropdown-list">
-                                <div>Consumer Headphones</div>
-                                <div>Hearing Solutions</div>
-                                <div>TV Listening</div>
-                                <div>Soundbars</div>
-                                <div>Accessories</div>
-                            </div>
+                          <div class="dropdown-list" id="locationDropdownList"></div>
                             <button class="current-location-btn" title="Current Location" id="current-location-btn"></button>
                             <button class="reset-location-btn" title="Reset Location" id="reset-location-btn" style="display:none;">Reset</button>
                             <!-- loader here -->
@@ -114,9 +108,7 @@
                       <div class="dropdowns-wrap">
                         <div class="dropdown category" id="categoryDropdown">
                             <div class="dropdown-btn"><span class="placeholder">Select Category</span></div>
-                           <div class="dropdown-list">
-                                <div>Loading...</div>
-                            </div>
+                           <div class="dropdown-list"></div>
                         </div>
                         <div class="dropdown radius" id="radiusDropdown">
                             <div class="dropdown-btn"><span class="placeholder">Radius</span></div>
@@ -136,156 +128,16 @@
           <div class="dealer-location-block">
               <div class="left-block">
                   <div class="upper-block">
-                      <h3>Dealers near "Gurgaon"</h3>
-                      <p>Showing 4 authorized locations within 25 km</p>
+                      <h3 id="dealer-title">Dealers near "Gurgaon"</h3>
+                      <p id="dealer-subtitle">Showing available dealers, use filters or search to refine results.</p>
                   </div>
-                  <div class="lower-block" id="retailers-list">
-                      <div class="custom-location-card">
-                          <div class="content-block">
-                              <div class="title-block">
-                                  <h4>Audio Vision</h4>
-                                  <span>4km</span>
-                              </div>
-                              <ul class="icon-list">
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'location-icon.svg' | asset_url }}" alt="Location Icon">
-                                      </em>
-                                      <span>
-                                          Sector 11, Old Railway Road, Gurgaon
-                                      </span>
-                                  </li>
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'phone-icon.svg' | asset_url }}" alt="Phone Icon">
-                                      </em>
-                                      <a href="tel:+91 9154682813">+91 9154682813</a>
-                                  </li>
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'web-icon.svg' | asset_url }}" alt="Web Icon">
-                                      </em>
-                                      <a href="" title="www.audiovision.com">www.audiovision.com</a>
-                                  </li>
-                              </ul>
-                          </div>
-                          <div class="btn-wrap">
-                              <a href="#" class="btn secondary-btn" title="Visit Website">Visit
-                                  website</a>
-                              <a href="#" class="btn btn-primary" title="Get Direction">Get
-                                  Direction</a>
-                          </div>
-                      </div>
-                      <div class="custom-location-card">
-                          <div class="content-block">
-                              <div class="title-block">
-                                  <h4>HearClear Solutions</h4>
-                                  <span>8km</span>
-                              </div>
-                              <ul class="icon-list">
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'location-icon.svg' | asset_url }}" alt="Location Icon">
-                                      </em>
-                                      <span>
-                                          Sadar Bazar Rd, Sector 12, Gurgaon
-                                      </span>
-                                  </li>
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'phone-icon.svg' | asset_url }}" alt="Phone Icon">
-                                      </em>
-                                      <a href="tel:+91 9711987395">+91 9711987395</a>
-                                  </li>
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'web-icon.svg' | asset_url }}" alt="Web Icon">
-                                      </em>
-                                      <a href=""
-                                          title="www.hearclearsolutions.in">www.hearclearsolutions.in</a>
-                                  </li>
-                              </ul>
-                          </div>
-                          <div class="btn-wrap">
-                              <a href="#" class="btn secondary-btn" title="Visit Website">Visit
-                                  website</a>
-                              <a href="#" class="btn btn-primary" title="Get Direction">Get
-                                  Direction</a>
-                          </div>
-                      </div>
-                      <div class="custom-location-card">
-                          <div class="content-block">
-                              <div class="title-block">
-                                  <h4>Tech Universe</h4>
-                                  <span>12km</span>
-                              </div>
-                              <ul class="icon-list">
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'location-icon.svg' | asset_url }}" alt="Location Icon">
-                                      </em>
-                                      <span>
-                                          Sector 12, Jacob Pura Rd, Gurgaon
-                                      </span>
-                                  </li>
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'phone-icon.svg' | asset_url }}" alt="Phone Icon">
-                                      </em>
-                                      <a href="tel:+91 9845964875">+91 9845964875</a>
-                                  </li>
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'web-icon.svg' | asset_url }}" alt="Web Icon">
-                                      </em>
-                                      <a href="" title="www.techuniverse.com">www.techuniverse.com</a>
-                                  </li>
-                              </ul>
-                          </div>
-                          <div class="btn-wrap">
-                              <a href="#" class="btn secondary-btn" title="Visit Website">Visit
-                                  website</a>
-                              <a href="#" class="btn btn-primary" title="Get Direction">Get
-                                  Direction</a>
-                          </div>
-                      </div>
-                      <div class="custom-location-card">
-                          <div class="content-block">
-                              <div class="title-block">
-                                  <h4>Electronics Mart</h4>
-                                  <span>14km</span>
-                              </div>
-                              <ul class="icon-list">
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'location-icon.svg' | asset_url }}" alt="Location Icon">
-                                      </em>
-                                      <span>
-                                          Sector 12, Jacob Pura Rd, Gurgaon
-                                      </span>
-                                  </li>
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'phone-icon.svg' | asset_url }}" alt="Phone Icon">
-                                      </em>
-                                      <a href="tel:+91 9845964875">+91 9845964875</a>
-                                  </li>
-                                  <li>
-                                      <em>
-                                          <img src="{{ 'web-icon.svg' | asset_url }}" alt="Web Icon">
-                                      </em>
-                                      <a href="" title="www.techuniverse.com">www.techuniverse.com</a>
-                                  </li>
-                              </ul>
-                          </div>
-                          <div class="btn-wrap">
-                              <a href="#" class="btn secondary-btn" title="Visit Website">Visit
-                                  website</a>
-                              <a href="#" class="btn btn-primary" title="Get Direction">Get
-                                  Direction</a>
-                          </div>
-                      </div>
-                  </div>
+                 <div class="lower-block" id="retailers-list">
+  <!-- Loader -->
+  <div id="retailers-loader" class="loader-wrapper">
+    <span class="spinner"></span>
+    <p>Loading Retailers...</p>
+  </div>
+</div>
               </div>
               <div class="right-block">
                  <div class="map" id="map-container"></div>

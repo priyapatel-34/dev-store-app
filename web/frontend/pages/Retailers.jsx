@@ -21,14 +21,15 @@ import {
   Toast,
   useIndexResourceState,
   Spinner,
+  Autocomplete
 } from "@shopify/polaris";
 
-const PAGE_SIZE = 7;
+const PAGE_SIZE = 6;
 
 const RETAILER_TYPE_OPTIONS = [
   { label: "Select type…", value: "" },
   { label: "Online", value: "online" },
-  { label: "Offline / Physical Store", value: "offline" },
+  { label: "Offline", value: "offline" },
 ];
 
 const STATUS_OPTIONS = [
@@ -53,6 +54,7 @@ const EMPTY_RETAILER = {
   website_url: "",
   google_maps_link: "",
   opening_hours: "",
+  category_ids: [],
   notes: "",
 };
 
@@ -95,8 +97,8 @@ const CSV_TEMPLATE_HEADERS = [
   "website_url",
   "google_maps_link",
   "opening_hours",
-  "notes",
   "categories",
+  "notes",
 ];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -162,7 +164,7 @@ const downloadCSVTemplate = () => {
   URL.revokeObjectURL(url);
 };
 
-const RetailerForm = ({ retailer, onChange, errors = {} }) => (
+const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [] }) => (
   <FormLayout>
     <Text variant="headingSm" as="h3">Basic Information</Text>
 
@@ -195,6 +197,36 @@ const RetailerForm = ({ retailer, onChange, errors = {} }) => (
         options={STATUS_OPTIONS}
         value={retailer.status}
         onChange={(v) => onChange("status", v)}
+      />
+
+      <Autocomplete
+        allowMultiple
+        options={allCategories.map((c) => ({
+          value: String(c.id),
+          label: c.name,
+        }))}
+        selected={retailer.category_ids || []}
+        onSelect={(selected) => onChange("category_ids", selected)}
+        textField={
+          <Autocomplete.TextField
+            label="Categories"
+            placeholder="Select categories"
+            autoComplete="off"
+            value={
+              retailer.category_ids && retailer.category_ids.length > 0
+                ? retailer.category_ids
+                  .map((id) => {
+                    const cat = allCategories.find(
+                      (c) => String(c.id) === String(id)
+                    );
+                    return cat?.name;
+                  })
+                  .filter(Boolean)
+                  .join(", ")
+                : ""
+            }
+          />
+        }
       />
     </FormLayout.Group>
 
@@ -583,7 +615,8 @@ const RetailersManager = () => {
   const [retailers, setRetailers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-
+  const [allCategories, setAllCategories] = useState([]);
+  const [filterEnabled, setFilterEnabled] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingRetailer, setEditingRetailer] = useState(null);
@@ -606,8 +639,38 @@ const RetailersManager = () => {
     setPage(1);
   }, [retailers.length]);
 
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch("/app/settings");
+        const data = await res.json();
+
+        setFilterEnabled(data.data?.filter_enabled ?? false);
+
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchSettings();
+  }, []);
+
   const { selectedResources, allResourcesSelected, handleSelectionChange } =
     useIndexResourceState(paginatedRetailers);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch("/app/categories");
+      const data = await res.json();
+      if (data.success) setAllCategories(data.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   const fetchRetailers = useCallback(async () => {
     try {
@@ -684,6 +747,27 @@ const RetailersManager = () => {
 
   const handleCloseEdit = () => { setEditingRetailer(null); setEditRetailerErrors({}); };
 
+  const handleToggle = async (value) => {
+    setFilterEnabled(value);
+
+    try {
+      await fetch("/app/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          filter_enabled: value
+        }),
+      });
+
+      showToast(`Filter ${value ? "enabled" : "disabled"} successfully`);
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update setting", true);
+    }
+  };
+
   const handleConfirmDelete = async () => {
     try {
       setIsDeleting(true);
@@ -753,7 +837,17 @@ const RetailersManager = () => {
       <IndexTable.Cell>{r.notes || "—"}</IndexTable.Cell>
       <IndexTable.Cell>
         <ButtonGroup variant="segmented">
-          <Button size="slim" onClick={() => setEditingRetailer({ ...r })}>Edit</Button>
+          <Button size="slim" onClick={() => setEditingRetailer({
+            ...r,
+            category_ids: r.categories
+              ? r.categories.split(",").map((name) => {
+                const cat = allCategories.find(
+                  (c) => c.name.trim().toLowerCase() === name.trim().toLowerCase()
+                );
+                return cat ? String(cat.id) : null;
+              }).filter(Boolean)
+              : []
+          })}>Edit</Button>
           <Button size="slim" tone="critical" onClick={() =>
             setDeleteContext({ type: "single", items: [r] })
           }>Delete</Button>
@@ -770,8 +864,61 @@ const RetailersManager = () => {
       secondaryActions={[
         { content: "Import CSV", onAction: () => setIsImportOpen(true) },
       ]}
+
       titleMetadata={<Badge tone="info">{`${retailers.length} total`}</Badge>}
     >
+      <div style={{ marginBottom: "16px" }}>
+        <Card>
+          <Box padding="400">
+            <div style={{
+              display: "flex",
+              padding: '10px',
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}>
+
+              {/* LEFT SIDE */}
+              <div>
+                <Text variant="headingSm">Filter Settings</Text>
+                <Text tone="subdued">
+                  Show or hide filter options on the storefront
+                </Text>
+              </div>
+
+              {/* RIGHT SIDE TOGGLE */}
+              <button
+                onClick={() => handleToggle(!filterEnabled)}
+                style={{
+                  position: "relative",
+                  width: "48px",
+                  height: "28px",
+                  backgroundColor: filterEnabled ? "#008060" : "#c4cdd5",
+                  borderRadius: "999px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  padding: "0"
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "4px",
+                    left: filterEnabled ? "24px" : "4px",
+                    width: "20px",
+                    height: "20px",
+                    background: "#fff",
+                    borderRadius: "50%",
+                    transition: "all 0.3s ease",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+                  }}
+                />
+              </button>
+
+            </div>
+          </Box>
+        </Card>
+      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         {selectedResources.length > 0 && (
           <Banner tone="info">
@@ -853,6 +1000,7 @@ const RetailersManager = () => {
             retailer={newRetailer}
             onChange={(field, value) => setNewRetailer((prev) => ({ ...prev, [field]: value }))}
             errors={newRetailerErrors}
+            allCategories={allCategories}
           />
         </Modal.Section>
       </Modal>
@@ -874,6 +1022,7 @@ const RetailersManager = () => {
                 retailer={editingRetailer}
                 onChange={(field, value) => setEditingRetailer((prev) => ({ ...prev, [field]: value }))}
                 errors={editRetailerErrors}
+                allCategories={allCategories}
               />
             </div>
           )}
@@ -899,14 +1048,14 @@ const RetailersManager = () => {
             <Text as="p">
               Are you sure you want to delete{" "}
               <Text as="span" fontWeight="semibold">
-                {deleteContext.items[0]?.name} ?
+                {deleteContext.items[0]?.name} ? This activity deactive the Retailer.
               </Text>
             </Text>
           ) : (
             <Text as="p">
               Are you sure you want to delete{" "}
               <Text as="span" fontWeight="semibold">
-                {deleteContext?.items.length} retailers ?
+                {deleteContext?.items.length} retailers ? This activity deactive the Retailers.
               </Text>
             </Text>
           )}

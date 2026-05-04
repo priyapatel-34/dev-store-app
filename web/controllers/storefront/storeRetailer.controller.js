@@ -157,9 +157,7 @@ async function getShopIdFromSession(res) {
         lng ? parseFloat(lng) : null,
         radiusInKm || null,
       ];
-   
-      console.log("FINAL SEARCH USED:", cleanSearch);
-   
+      
       const result = await pool.query(query, values);
    
       return res.json({

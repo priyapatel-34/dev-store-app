@@ -59,8 +59,10 @@ export default defineConfig({
       "^/api(/|(\\?.*)?$)": proxyOptions,
       "^/app/retailers(/|(\\?.*)?$)": proxyOptions,
       "^/app/categories(/|(\\?.*)?$)": proxyOptions,
+      "^/app/settings(/|(\\?.*)?$)": proxyOptions,
       "^/retailers(/|(\\?.*)?$)": proxyOptions,
       "^/categories(/|(\\?.*)?$)": proxyOptions,
+      "^/settings(/|(\\?.*)?$)": proxyOptions,
     },
   },
 });
