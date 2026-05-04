@@ -9,6 +9,7 @@ import shopify from "./shopify.js";
 import { initDb } from "./db/initDb.js";
 import PrivacyWebhookHandlers from "./privacy.js";
 import retailersRoutes from "./routes/admin/retailers.routes.js";
+import categoriesRoutes from "./routes/admin/categories.routes.js"
 import storeRetailersRoutes from "./routes/storefront/retailer.routes.js";
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
@@ -69,7 +70,8 @@ app.use(express.urlencoded({ extended: true }));
 
 await initDb();
 
-app.use("/app/retailers",  shopify.validateAuthenticatedSession(), retailersRoutes);
+app.use("/app/retailers", shopify.validateAuthenticatedSession(), retailersRoutes);
+app.use("/app/categories", shopify.validateAuthenticatedSession(), categoriesRoutes);
 app.use("/retailers", storeRetailersRoutes);
 app.get("/categories", storeRetailersRoutes);
 /* ---------------- AUTH MIDDLEWARE ---------------- */

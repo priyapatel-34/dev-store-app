@@ -73,6 +73,7 @@ const TABLE_HEADINGS = [
   { title: "Website" },
   { title: "Google Maps" },
   { title: "Opening Hours" },
+  { title: "Categories" },
   { title: "Notes" },
   { title: "Actions" },
 ];
@@ -467,8 +468,8 @@ const ImportCSVModal = ({ open, onClose, onSuccess }) => {
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
                       <svg viewBox="0 0 24 24" width="22" height="22" fill="#6b7280">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-                        <path d="M14 2v6h6M8 13h8M8 17h4"/>
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
+                        <path d="M14 2v6h6M8 13h8M8 17h4" />
                       </svg>
                     </div>
                     <div gap="050">
@@ -586,8 +587,7 @@ const RetailersManager = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingRetailer, setEditingRetailer] = useState(null);
-  const [deletingRetailer, setDeletingRetailer] = useState(null);
-
+  const [deleteContext, setDeleteContext] = useState(null);
   const [newRetailer, setNewRetailer] = useState(EMPTY_RETAILER);
   const [newRetailerErrors, setNewRetailerErrors] = useState({});
   const [editRetailerErrors, setEditRetailerErrors] = useState({});
@@ -613,13 +613,11 @@ const RetailersManager = () => {
     try {
       setLoading(true);
       const res = await fetch("/app/retailers");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.success) setRetailers(data.data);
-      else throw new Error(data.message || "Failed to load");
     } catch (err) {
       console.error("fetchRetailers:", err);
-      showToast("Failed to load retailers.", true);
+      showToast(err, true);
     } finally {
       setLoading(false);
     }
@@ -659,26 +657,6 @@ const RetailersManager = () => {
     setNewRetailerErrors({});
   };
 
-  const handleBulkDelete = async () => {
-    try {
-      setIsDeleting(true);
-
-      await Promise.all(
-        selectedResources.map((id) =>
-          fetch(`/app/retailers/${id}`, { method: "DELETE" })
-        )
-      );
-
-      await fetchRetailers();
-      showToast("Selected retailers deleted successfully");
-    } catch (err) {
-      console.error("bulk delete error:", err);
-      showToast("Failed to delete selected retailers", true);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const handleSave = async () => {
     const errors = validateRetailerData(editingRetailer);
     if (Object.keys(errors).length > 0) { setEditRetailerErrors(errors); return; }
@@ -706,17 +684,28 @@ const RetailersManager = () => {
 
   const handleCloseEdit = () => { setEditingRetailer(null); setEditRetailerErrors({}); };
 
-  const handleDelete = async () => {
+  const handleConfirmDelete = async () => {
     try {
       setIsDeleting(true);
-      const res = await fetch(`/app/retailers/${deletingRetailer.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (deleteContext.type === "single") {
+        const id = deleteContext.items[0].id;
+        await fetch(`/app/retailers/${id}`, { method: "DELETE" });
+      } else {
+        await Promise.all(
+          deleteContext.items.map((id) =>
+            fetch(`/app/retailers/${id}`, { method: "DELETE" })
+          )
+        );
+      }
+
       await fetchRetailers();
-      setDeletingRetailer(null);
-      showToast("Retailer deleted.");
+      showToast("Deleted successfully");
+      setDeleteContext(null);
+      handleSelectionChange([]);
     } catch (err) {
-      console.error("deleteRetailer:", err);
-      showToast("Failed to delete retailer.", true);
+      console.error("delete error:", err);
+      showToast("Failed to delete", true);
     } finally {
       setIsDeleting(false);
     }
@@ -727,7 +716,7 @@ const RetailersManager = () => {
     <IndexTable.Row
       key={r.id}
       id={String(r.id)}
-      selected={selectedResources.includes(String(r.id))}
+      selected={selectedResources.includes(r.id) || selectedResources.includes(String(r.id))}
       position={index}
     >
       <IndexTable.Cell><Text fontWeight="semibold">{r.id}</Text></IndexTable.Cell>
@@ -758,11 +747,16 @@ const RetailersManager = () => {
         )}
       </IndexTable.Cell>
       <IndexTable.Cell>{r.opening_hours || "—"}</IndexTable.Cell>
+      <IndexTable.Cell>
+        {r.categories ? r.categories : "—"}
+      </IndexTable.Cell>
       <IndexTable.Cell>{r.notes || "—"}</IndexTable.Cell>
       <IndexTable.Cell>
         <ButtonGroup variant="segmented">
           <Button size="slim" onClick={() => setEditingRetailer({ ...r })}>Edit</Button>
-          <Button size="slim" tone="critical" onClick={() => setDeletingRetailer(r)}>Delete</Button>
+          <Button size="slim" tone="critical" onClick={() =>
+            setDeleteContext({ type: "single", items: [r] })
+          }>Delete</Button>
         </ButtonGroup>
       </IndexTable.Cell>
     </IndexTable.Row>
@@ -786,7 +780,12 @@ const RetailersManager = () => {
                 {selectedResources.length} retailer{selectedResources.length > 1 ? "s" : ""} selected
               </Text>
 
-              <Button tone="critical" onClick={() => handleBulkDelete()}>
+              <Button tone="critical" onClick={() =>
+                setDeleteContext({
+                  type: "bulk",
+                  items: selectedResources,
+                })
+              }>
                 Delete Selected
               </Button>
             </div>
@@ -819,7 +818,7 @@ const RetailersManager = () => {
 
               <Box padding="400">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text as="p" tone="subdued" style={{marginLeft: "15px"}}>
+                  <Text as="p" tone="subdued" style={{ marginLeft: "15px" }}>
                     Page {page} of {totalPages}
                   </Text>
                   <Pagination
@@ -882,18 +881,35 @@ const RetailersManager = () => {
       </Modal>
 
       <Modal
-        open={Boolean(deletingRetailer)}
-        onClose={() => setDeletingRetailer(null)}
+        open={Boolean(deleteContext)}
+        onClose={() => setDeleteContext(null)}
         title="Delete Retailer"
-        primaryAction={{ content: "Delete", destructive: true, onAction: handleDelete, loading: isDeleting }}
-        secondaryActions={[{ content: "Cancel", onAction: () => setDeletingRetailer(null) }]}
+        primaryAction={{
+          content: "Delete",
+          destructive: true,
+          onAction: handleConfirmDelete,
+          loading: isDeleting,
+        }}
+        secondaryActions={[
+          { content: "Cancel", onAction: () => setDeleteContext(null) },
+        ]}
       >
         <Modal.Section>
-          <Text as="p">
-            Are you sure you want to delete{" "}
-            <Text as="span" fontWeight="semibold">{deletingRetailer?.name}</Text>?
-            This action cannot be undone.
-          </Text>
+          {deleteContext?.type === "single" ? (
+            <Text as="p">
+              Are you sure you want to delete{" "}
+              <Text as="span" fontWeight="semibold">
+                {deleteContext.items[0]?.name} ?
+              </Text>
+            </Text>
+          ) : (
+            <Text as="p">
+              Are you sure you want to delete{" "}
+              <Text as="span" fontWeight="semibold">
+                {deleteContext?.items.length} retailers ?
+              </Text>
+            </Text>
+          )}
         </Modal.Section>
       </Modal>
 

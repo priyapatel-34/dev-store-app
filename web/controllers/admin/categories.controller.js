@@ -1,27 +1,57 @@
 import { pool } from "../../db/db.js";
 
-export async function getCategories(req, res){
-    try {
-      const store_id = req.store_id;
-  
-      if (!store_id) {
-        return res.status(400).json({ error: "Store not found in session" });
-      }
-  
-      const result = await pool.query(
-        `SELECT * FROM categories
-         WHERE store_id = $1 AND is_active = true
-         ORDER BY id DESC`,
-        [store_id]
-      );
-  
-      res.json({ success: true, data: result.rows });
-  console.log("datadatadata",result.rows)
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: err.message });
+async function getShopIdFromSession(res) {
+  const session = res.locals.shopify?.session;
+
+  if (!session || !session.shop) {
+    throw new Error("Unauthorized");
+  }
+
+  const shopDomain = session.shop;
+  console.log("SHOP DOMAIN:", shopDomain);
+  const { rows } = await pool.query(
+    `SELECT id FROM stores WHERE shop_domain = $1 AND is_installed = TRUE`,
+    [shopDomain]
+  );
+
+  if (!rows.length) {
+    throw new Error("Shop not registered");
+  }
+
+  return rows[0].id;
+}
+
+export async function getCategories(req, res) {
+  try {
+    const store_id = await getShopIdFromSession(res);
+
+    const result = await pool.query(
+      `SELECT * FROM categories
+       WHERE store_id = $1
+       ORDER BY id DESC`,
+      [store_id]
+    );
+
+    return res.json({
+      success: true,
+      count: result.rows.length,
+      data: result.rows
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    if (err.message === "Unauthorized") {
+      return res.status(401).json({ error: err.message });
     }
-  };
+
+    if (err.message === "Shop not registered") {
+      return res.status(404).json({ error: err.message });
+    }
+
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+}
 
   export async function createCategories(req, res) {
     try {
@@ -36,7 +66,7 @@ export async function getCategories(req, res){
         `INSERT INTO categories (name, store_id, is_active)
          VALUES ($1, $2, true)
          RETURNING *`,
-        [name.trim(), store_id] // ✅ FIXED ORDER
+        [name.trim(), store_id]
       );
   
       res.json({

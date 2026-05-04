@@ -52,7 +52,6 @@ async function getShopIdFromSession(res) {
 export async function getRetailers(req, res) {
   try {
     const store_id = await getShopIdFromSession(res);
-
     const { country, category } = req.query;
 
     const query = `

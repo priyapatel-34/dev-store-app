@@ -32,9 +32,6 @@ async function getShopIdFromSession(res) {
       // ✅ Clean search (DO NOT break formatting like 111-55)
       const cleanSearch = search ? search.trim().replace(/\s+/g, " ") : null;
    
-      console.log("RAW SEARCH:", search);
-      console.log("CLEAN SEARCH:", cleanSearch);
-   
       const query = `
         SELECT
           r.id,

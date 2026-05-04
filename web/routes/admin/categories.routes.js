@@ -1,15 +1,15 @@
-const express = require("express");
-const router = express.Router();
-const {
-    getCategories,
-    createCategories,
-    updateCategories,
-    deleteCategories,
-  } = require("../../controllers/admin/categories.controller.js")
+import express from "express";
+import {
+  getCategories,
+  createCategories,
+  updateCategories,
+  deleteCategories,
+} from "../../controllers/admin/categories.controller.js"
 
+const router = express.Router();
 router.get("/", getCategories);
 router.post("/", createCategories);
 router.put("/:id", updateCategories);
 router.delete("/:id", deleteCategories);
 
-module.exports = router;const res = await fetch
+export default router;
