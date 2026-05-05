@@ -109,7 +109,6 @@ const Categories = () => {
             });
 
             const data = await res.json();
-            console.log("data", data)
             if (!data.success) {
                 throw new Error(data.message || "Failed to create category");
             }

@@ -105,6 +105,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Load stores then initialize map
   initCurrentLocationButton();
   initApp();
+
+  const locationList = document.getElementById("locationDropdownList");
+  if (locationList) {
+    locationList.addEventListener("click", (e) => {
+      e.stopPropagation(); // prevent dropdown from closing
+    });
+  }
+
 });
 
 
@@ -1040,9 +1048,9 @@ async function loadGoogleMapsAndInitMap() {
   async function loadCategories() {
     try {
       const baseUrl = window.RETAILER_API_URL || "";
-      const storeId = window.STORE_ID;
+      const shop = window.SHOP_DOMAIN; 
   
-      const response = await fetch(`${baseUrl}/categories`);
+      const response = await fetch(`${baseUrl}/categories?shop=${shop}`);
   
       if (!response.ok) {
         throw new Error("API failed");
@@ -1053,6 +1061,7 @@ async function loadGoogleMapsAndInitMap() {
       if (result.success) {
         renderCategories(result.data);
       }
+  
       console.log("FRONTEND DATA:", result.data);
     } catch (error) {
       console.error("Category load failed:", error);
@@ -1141,7 +1150,11 @@ async function loadGoogleMapsAndInitMap() {
     }
   }
    
-  function renderLocationDropdown(data, list, input, dropdown) {
+  function renderLocationDropdown(data, input, dropdown) {
+    const list = document.getElementById("locationDropdownList");
+   
+    if (!list) return;
+   
     list.innerHTML = "";
    
     if (!data.length) {
@@ -1150,33 +1163,61 @@ async function loadGoogleMapsAndInitMap() {
     }
    
     data.forEach((item) => {
-      const div = document.createElement("div");
+      const wrapper = document.createElement("div");
+      wrapper.className = "location-list-item";
    
-      // show name + city (better UX)
-      div.innerText = `${item.name} (${item.city})`;
+      const fullAddress = [
+        item.address_line1,
+        item.address_line2,
+        item.city,
+        item.state,
+        item.postal_code,
+      ]
+        .filter(Boolean)
+        .join(", ");
    
-      div.addEventListener("click", () => {
-        input.value = item.name;
-        dropdown.classList.remove("active");
-      });
+      wrapper.innerHTML = `
+  <h5>
+  <span class="icon-wrap">
+  <img src="/assets/location-pin.svg" alt="Location Icon">
+  </span>
+          ${item.name}
+  </h5>
+  <p>${fullAddress}</p>
+      `;
    
-      list.appendChild(div);
+      // ✅ THIS WILL WORK ONCE CSS IS FIXED
+     wrapper.onclick = function () {
+    console.log("CLICK WORKING"); // 👈 check this in console
+    input.value = item.name;
+    console.log("item.name",item.name)
+    console.log("input.value",input.value)
+    let myInp = $(this).parents(".input-box").find("input");
+    console.log(myInp);
+    myInp.val(myInp)
+    dropdown.classList.remove("active");
+  };
+   
+      list.appendChild(wrapper);
     });
   }
 
   async function loadFilterSettings() {
     try {
       const baseUrl = window.RETAILER_API_URL || "";
+      const shop = window.SHOP_DOMAIN; // 👈 important
   
-      const res = await fetch(`${baseUrl}/filters`);
+      console.log("SHOP DOMAIN:", shop); // debug
+  
+      const res = await fetch(`${baseUrl}/settings?shop=${shop}`);
       const result = await res.json();
+  
+      console.log("FILTER API RESPONSE:", result); // debug
   
       if (result.success && result.data.length > 0) {
         const filterEnabled = result.data[0].filter_enabled;
   
-        console.log("FILTER ENABLED:", filterEnabled);
-  
-        const filterBlock = document.querySelector(".right-wrap");
+        const filterBlock = document.querySelector(".dropdowns-wrap");
   
         if (filterBlock) {
           filterBlock.style.display = filterEnabled ? "block" : "none";

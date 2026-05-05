@@ -1,5 +1,5 @@
 import express from "express";
-import { getCategories } from "../../controllers/storefront/storeSettings.controller.js";
+import { getCategories } from "../../controllers/storefront/storeCategories.controller.js";
 const router = express.Router();
  
 router.get("/", getCategories);

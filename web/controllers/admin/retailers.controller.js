@@ -36,7 +36,6 @@ async function getShopIdFromSession(res) {
   }
 
   const shopDomain = session.shop;
-  console.log("SHOP DOMAIN:", shopDomain);
   const { rows } = await pool.query(
     `SELECT id FROM stores WHERE shop_domain = $1 AND is_installed = TRUE`,
     [shopDomain]

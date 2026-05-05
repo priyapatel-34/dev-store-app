@@ -2,8 +2,8 @@
     margin: 0;
 }
 
-.authorized-dealer-page .section--page-width {
-    display: flex;
+.authorized-dealer-page .section-wrapper .section--page-width {
+    display: block;
 }
 
 .authorized-dealer-page .shopify-app-block {

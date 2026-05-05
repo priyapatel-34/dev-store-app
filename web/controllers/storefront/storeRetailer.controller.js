@@ -1,25 +1,4 @@
 import { pool } from "../../db/db.js";
-
-async function getShopIdFromSession(res) {
-    const session = res.locals.shopify?.session;
-   
-    if (!session || !session.stores) {
-      throw new Error("Unauthorized");
-    }
-   
-    const shopDomain = session.stores;
-   
-    const { rows } = await pool.query(
-      `SELECT id FROM stores WHERE shop_domain = $1 AND is_installed = TRUE`,
-      [shopDomain],
-    );
-   
-    if (!rows.length) {
-      throw new Error("Shop not registered");
-    }
-   
-    return rows[0].id;
-  }
    
   export async function getRetailers(req, res) {
     try {
@@ -76,6 +55,7 @@ async function getShopIdFromSession(res) {
           -- ✅ Normalize + and - → space
           OR REPLACE(REPLACE(
             CONCAT_WS(' ',
+              r.name,
               r.address_line1,
               r.address_line2,
               r.city,
@@ -89,6 +69,7 @@ async function getShopIdFromSession(res) {
           -- ✅ Remove + and - completely
           OR REPLACE(REPLACE(
             CONCAT_WS(' ',
+              r.name,
               r.address_line1,
               r.address_line2,
               r.city,
@@ -104,6 +85,7 @@ async function getShopIdFromSession(res) {
    
           -- ✅ Fallback (original string match)
           OR CONCAT_WS(' ',
+            r.name,
             r.address_line1,
             r.address_line2,
             r.city,
@@ -157,7 +139,7 @@ async function getShopIdFromSession(res) {
         lng ? parseFloat(lng) : null,
         radiusInKm || null,
       ];
-      
+     
       const result = await pool.query(query, values);
    
       return res.json({

@@ -13,15 +13,6 @@ if (process.env.NODE_ENV !== "production") {
   dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 }
 
-// Debug
-console.log("ENV:", {
-  PG_HOST: process.env.PG_HOST,
-  PG_USER: process.env.PG_USER,
-  PG_PASSWORD: process.env.PG_PASSWORD ? "****" : "EMPTY",
-  PG_DATABASE: process.env.PG_DATABASE,
-  PG_PORT: process.env.PG_PORT
-});
-
 // Pool
 export const pool = new Pool({
   host: process.env.PG_HOST,
