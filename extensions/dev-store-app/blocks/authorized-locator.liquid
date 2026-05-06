@@ -9,7 +9,7 @@
 </script>
 
 <script>
-  window.RETAILER_API_URL = "https://figured-with-absent-sector.trycloudflare.com";
+  window.RETAILER_API_URL = "https://isbn-viking-lights-dns.trycloudflare.com";
 </script>
 
 <script src="{{ 'authorized-locator.js' | asset_url }}" defer></script>
@@ -84,7 +84,7 @@
         </div>
     </section>
 
-    <section class="section-wrapper">
+    <section class="section-wrapper rich-text-section">
       <div class="container">
         <h2>{{ block.settings.page_content_title }}</h2>
         <div>{{ block.settings.page_center_content }}</div>
@@ -100,7 +100,6 @@
                          <input type="text" placeholder="Search City, Postal Code, Address" name="location-address" class="dropdown-btn">
                           <div class="dropdown-list location-list" id="locationDropdownList">     
                         </div>
-
                             <button class="current-location-btn" title="Current Location" id="current-location-btn"></button>
                             <button class="reset-location-btn" title="Reset Location" id="reset-location-btn" style="display:none;">Reset</button>
                             <!-- loader here -->

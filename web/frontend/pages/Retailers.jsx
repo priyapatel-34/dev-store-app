@@ -38,7 +38,6 @@ const STATUS_OPTIONS = [
 ];
 
 const EMPTY_RETAILER = {
-  country_id: "",
   name: "",
   retailer_type: "",
   status: "active",
@@ -46,6 +45,7 @@ const EMPTY_RETAILER = {
   address_line2: "",
   city: "",
   state: "",
+  country: "",
   postal_code: "",
   latitude: "",
   longitude: "",
@@ -67,6 +67,7 @@ const TABLE_HEADINGS = [
   { title: "Address 2" },
   { title: "City" },
   { title: "State" },
+  { title: "Country" },
   { title: "Postal Code" },
   { title: "Latitude" },
   { title: "Longitude" },
@@ -82,13 +83,13 @@ const TABLE_HEADINGS = [
 
 const CSV_TEMPLATE_HEADERS = [
   "name",
-  "country",
   "retailer_type",
   "status",
   "address_line1",
   "address_line2",
   "city",
   "state",
+  "Country",
   "postal_code",
   "latitude",
   "longitude",
@@ -106,29 +107,103 @@ const PHONE_REGEX = /^[0-9]{7,15}$/;
 
 const validateRetailerData = (data) => {
   const errors = {};
-  if (!data.name?.trim()) errors.name = "Retailer name is required";
-  if (!data.retailer_type?.trim()) errors.retailer_type = "Type is required";
-  if (!data.city?.trim()) errors.city = "City is required";
-  if (!data.state?.trim()) errors.state = "State is required";
-  if (!data.postal_code?.trim()) errors.postal_code = "Postal code is required";
-  if (data.email && !EMAIL_REGEX.test(data.email))
-    errors.email = "Invalid email address";
-  if (data.phone && !PHONE_REGEX.test(data.phone))
+
+  // ✅ Retailer Name
+  if (!data.name?.trim()) {
+    errors.name = "Retailer name is required";
+  }
+
+  // ✅ Status
+  if (!data.status?.trim()) {
+    errors.status = "Status is required";
+  }
+
+  // ✅ Country
+  if (!data.country?.trim()) {
+    errors.country = "Country is required";
+  }
+
+  // ✅ Address Line 1
+  if (!data.address_line1?.trim()) {
+    errors.address_line1 = "Address Line 1 is required";
+  }
+
+  // ✅ City
+  if (!data.city?.trim()) {
+    errors.city = "City is required";
+  }
+
+  // ✅ State
+  if (!data.state?.trim()) {
+    errors.state = "State is required";
+  }
+
+  // ✅ Postal Code
+  if (!data.postal_code?.trim()) {
+    errors.postal_code = "Postal code is required";
+  }
+
+  // ✅ Phone
+  if (!data.phone?.trim()) {
+    errors.phone = "Phone is required";
+  } else if (!PHONE_REGEX.test(data.phone)) {
     errors.phone = "Invalid phone number (7–15 digits)";
+  }
+
+  if (data.email && !EMAIL_REGEX.test(data.email)) {
+    errors.email = "Invalid email address";
+  }
+
+  // ✅ Google Maps Link
+  if (!data.google_maps_link?.trim()) {
+    errors.google_maps_link = "Google Maps link is required";
+  } else if (!/^https?:\/\/(www\.)?google\./.test(data.google_maps_link)) {
+    errors.google_maps_link = "Invalid Google Maps link";
+  }
+
+  // ✅ Categories (FIXED)
+  if (!data.category_ids || data.category_ids.length === 0) {
+    errors.category_ids = "At least one category is required";
+  }
+
+  // ✅ Opening Hours
+  if (!data.opening_hours?.trim()) {
+    errors.opening_hours = "Opening hours are required";
+  }
+
+  // ✅ Latitude
+  if (!data.latitude?.trim()) {
+    errors.latitude = "Latitude is required";
+  } else {
+    const lat = Number(data.latitude);
+    if (isNaN(lat)) {
+      errors.latitude = "Latitude must be a number";
+    } else if (lat < -90 || lat > 90) {
+      errors.latitude = "Latitude must be between -90 and 90";
+    }
+  }
+
+  // ✅ Longitude
+  if (!data.longitude?.trim()) {
+    errors.longitude = "Longitude is required";
+  } else {
+    const lng = Number(data.longitude);
+    if (isNaN(lng)) {
+      errors.longitude = "Longitude must be a number";
+    } else if (lng < -180 || lng > 180) {
+      errors.longitude = "Longitude must be between -180 and 180";
+    }
+  }
+
+  // ❌ Prevent fake location
   if (
-    data.latitude &&
-    (isNaN(Number(data.latitude)) ||
-      Number(data.latitude) < -90 ||
-      Number(data.latitude) > 90)
-  )
-    errors.latitude = "Latitude must be between -90 and 90";
-  if (
-    data.longitude &&
-    (isNaN(Number(data.longitude)) ||
-      Number(data.longitude) < -180 ||
-      Number(data.longitude) > 180)
-  )
-    errors.longitude = "Longitude must be between -180 and 180";
+    Number(data.latitude) === 0 &&
+    Number(data.longitude) === 0
+  ) {
+    errors.latitude = "Invalid location (0,0 not allowed)";
+    errors.longitude = "Invalid location (0,0 not allowed)";
+  }
+
   return errors;
 };
 
@@ -142,6 +217,7 @@ const downloadCSVTemplate = () => {
     "Suite 4",
     "Mumbai",
     "Maharashtra",
+    "India",
     "400001",
     "19.076090",
     "72.877426",
@@ -164,7 +240,9 @@ const downloadCSVTemplate = () => {
   URL.revokeObjectURL(url);
 };
 
-const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [] }) => (
+
+
+const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [], countryOptions = [], }) => (
   <FormLayout>
     <Text variant="headingSm" as="h3">Basic Information</Text>
 
@@ -176,15 +254,7 @@ const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [] }) =
         error={errors.name}
         autoComplete="organization"
       />
-      <TextField
-        label="Country ID"
-        value={retailer.country_id}
-        onChange={(v) => onChange("country_id", v)}
-        autoComplete="off"
-      />
-    </FormLayout.Group>
 
-    <FormLayout.Group condensed>
       <Select
         label="Type"
         options={RETAILER_TYPE_OPTIONS}
@@ -192,6 +262,9 @@ const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [] }) =
         onChange={(v) => onChange("retailer_type", v)}
         error={errors.retailer_type}
       />
+    </FormLayout.Group>
+
+    <FormLayout.Group condensed>
       <Select
         label="Status"
         options={STATUS_OPTIONS}
@@ -212,6 +285,7 @@ const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [] }) =
             label="Categories"
             placeholder="Select categories"
             autoComplete="off"
+            error={errors.category_ids}
             value={
               retailer.category_ids && retailer.category_ids.length > 0
                 ? retailer.category_ids
@@ -261,15 +335,23 @@ const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [] }) =
         autoComplete="address-level1"
       />
     </FormLayout.Group>
+    <FormLayout.Group condensed>
+      <TextField
+        label="Postal Code"
+        value={retailer.postal_code}
+        onChange={(v) => onChange("postal_code", v)}
+        error={errors.postal_code}
+        autoComplete="postal-code"
+      />
 
-    <TextField
-      label="Postal Code"
-      value={retailer.postal_code}
-      onChange={(v) => onChange("postal_code", v)}
-      error={errors.postal_code}
-      autoComplete="postal-code"
-    />
-
+      <Select
+        label="Country"
+        options={countryOptions}
+        value={retailer.country}
+        onChange={(v) => onChange("country", v)}
+        error={errors.country}
+      />
+    </FormLayout.Group>
     <Text variant="headingSm" as="h3">Coordinates</Text>
 
     <FormLayout.Group condensed>
@@ -308,7 +390,6 @@ const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [] }) =
         label="Email"
         value={retailer.email}
         onChange={(v) => onChange("email", v)}
-        error={errors.email}
         autoComplete="email"
         type="email"
       />
@@ -329,6 +410,7 @@ const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [] }) =
       onChange={(v) => onChange("google_maps_link", v)}
       autoComplete="off"
       type="url"
+      error={errors.google_maps_link}
     />
 
     <Text variant="headingSm" as="h3">Additional Info</Text>
@@ -338,6 +420,7 @@ const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [] }) =
       value={retailer.opening_hours}
       onChange={(v) => onChange("opening_hours", v)}
       autoComplete="off"
+      error={errors.opening_hours}
       placeholder="e.g. Mon–Fri 9am–6pm"
     />
     <TextField
@@ -625,6 +708,7 @@ const RetailersManager = () => {
   const [newRetailerErrors, setNewRetailerErrors] = useState({});
   const [editRetailerErrors, setEditRetailerErrors] = useState({});
   const [isCreating, setIsCreating] = useState(false);
+  const [countries, setCountries] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState(null);
@@ -638,6 +722,14 @@ const RetailersManager = () => {
   useEffect(() => {
     setPage(1);
   }, [retailers.length]);
+
+  const countryOptions = [
+    { label: "Select country", value: "" },
+    ...countries.map((c) => ({
+      label: c.name,
+      value: c.name,
+    })),
+  ];
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -670,6 +762,22 @@ const RetailersManager = () => {
 
   useEffect(() => {
     fetchCategories();
+  }, []);
+
+  const fetchCountries = async () => {
+    try {
+      const res = await fetch("/app/countries");
+      const data = await res.json();
+      if (data.success) {
+        setCountries(data.data);
+      }
+    } catch (err) {
+      console.error("fetchCountries:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCountries();
   }, []);
 
   const fetchRetailers = useCallback(async () => {
@@ -813,6 +921,7 @@ const RetailersManager = () => {
       <IndexTable.Cell>{r.address_line2 || "—"}</IndexTable.Cell>
       <IndexTable.Cell>{r.city || "—"}</IndexTable.Cell>
       <IndexTable.Cell>{r.state || "—"}</IndexTable.Cell>
+      <IndexTable.Cell>{r.country || "—"}</IndexTable.Cell>
       <IndexTable.Cell>{r.postal_code || "—"}</IndexTable.Cell>
       <IndexTable.Cell>{r.latitude || "—"}</IndexTable.Cell>
       <IndexTable.Cell>{r.longitude || "—"}</IndexTable.Cell>
@@ -839,6 +948,7 @@ const RetailersManager = () => {
         <ButtonGroup variant="segmented">
           <Button size="slim" onClick={() => setEditingRetailer({
             ...r,
+            country: r.country ? r.country.trim() : "",
             category_ids: r.categories
               ? r.categories.split(",").map((name) => {
                 const cat = allCategories.find(
@@ -1001,6 +1111,7 @@ const RetailersManager = () => {
             onChange={(field, value) => setNewRetailer((prev) => ({ ...prev, [field]: value }))}
             errors={newRetailerErrors}
             allCategories={allCategories}
+            countryOptions={countryOptions}
           />
         </Modal.Section>
       </Modal>
@@ -1023,6 +1134,7 @@ const RetailersManager = () => {
                 onChange={(field, value) => setEditingRetailer((prev) => ({ ...prev, [field]: value }))}
                 errors={editRetailerErrors}
                 allCategories={allCategories}
+                countryOptions={countryOptions}
               />
             </div>
           )}

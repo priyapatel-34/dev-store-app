@@ -11,6 +11,7 @@ import PrivacyWebhookHandlers from "./privacy.js";
 import retailersRoutes from "./routes/admin/retailers.routes.js";
 import categoriesRoutes from "./routes/admin/categories.routes.js";
 import settingsRoutes from "./routes/admin/settings.routes.js";
+import countriesRoutes from "./routes/admin/countries.routes.js";
 import storeRetailersRoutes from "./routes/storefront/retailer.routes.js";
 import storeCategoriesRoutes from "./routes/storefront/categories.routes.js";
 import storeSettingsRoutes from "./routes/storefront/settings.routes.js";
@@ -77,6 +78,7 @@ await initDb();
 app.use("/app/retailers", shopify.validateAuthenticatedSession(), retailersRoutes);
 app.use("/app/categories", shopify.validateAuthenticatedSession(), categoriesRoutes);
 app.use("/app/settings", shopify.validateAuthenticatedSession(), settingsRoutes);
+app.use("/app/countries", shopify.validateAuthenticatedSession(), countriesRoutes);
 
 app.use("/retailers", storeRetailersRoutes);
 app.use("/categories", storeCategoriesRoutes);

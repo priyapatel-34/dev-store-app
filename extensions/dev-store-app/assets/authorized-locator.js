@@ -5,7 +5,7 @@ const UserLocation = {
   accuracy: null
 };
 // RADIUS_KM: Distance in kilometers to filter nearby stores
-const NEARBY_STORES_RADIUS_KM = 5000; // Adjust this value as needed
+const NEARBY_STORES_RADIUS_KM = 100; // Adjust this value as needed
 // ============================================================
 // MAP PROVIDER CONFIGURATION
 // ============================================================
@@ -32,69 +32,69 @@ const App = {
 document.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll(".dropdown").forEach(drop => {
     const btn = drop.querySelector(".dropdown-btn");
- 
+
     btn.addEventListener("click", () => {
       const isActive = drop.classList.contains("active");
-          document.querySelectorAll(".dropdown").forEach(d => d.classList.remove("active"));
+      document.querySelectorAll(".dropdown").forEach(d => d.classList.remove("active"));
       if (!isActive) {
         drop.classList.add("active");
       }
     });
- 
-      drop.querySelectorAll(".dropdown-list div").forEach(option => {
-        option.addEventListener("click", () => {
-          btn.querySelector("span").classList.remove("placeholder");
-          btn.querySelector("span").innerText = option.innerText;
-          drop.classList.remove("active");
-        });
+
+    drop.querySelectorAll(".dropdown-list div").forEach(option => {
+      option.addEventListener("click", () => {
+        btn.querySelector("span").classList.remove("placeholder");
+        btn.querySelector("span").innerText = option.innerText;
+        drop.classList.remove("active");
       });
+    });
   });
- 
+
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".dropdown")) {
-          document.querySelectorAll(".dropdown").forEach(d => d.classList.remove("active"));
+      document.querySelectorAll(".dropdown").forEach(d => d.classList.remove("active"));
     }
   });
- 
+
   const searchBtn = document.querySelector(".search-container .btn-primary");
   if (searchBtn) {
-   searchBtn.addEventListener("click", async () => {
-     const searchInput = document.querySelector(".input-box input");
-     const categoryText = document.querySelector(
-       "#categoryDropdown .dropdown-btn span",
-     );
-     const radiusText = document.querySelector(
-       "#radiusDropdown .dropdown-btn span",
-     );
-     const searchValue = searchInput?.value?.trim();
-     const categoryValue = categoryText?.innerText?.includes("Select")
-       ? null
-       : categoryText.innerText;
-     const radiusValue = radiusText?.innerText?.includes("Radius")
-       ? null
-       : radiusText.innerText;
-     const params = {};
-     if (searchValue) params.search = searchValue;
-     if (categoryValue) params.category = categoryValue;
-     // ✅ If radius selected → get current location
-     if (radiusValue) {
-       try {
-         const position = await getCurrentLocation();
-         params.lat = position.lat;
-         params.lng = position.lng;
-         params.radius = radiusValue.replace(" ", ""); // 5 km → 5km
-         console.log("📍 Current Location:", position);
-       } catch (err) {
-         console.error("Location error:", err);
-         alert(
-           "Unable to fetch current location. Please allow location access.",
-         );
-         return;
-       }
-     }
-     console.log("Search Params:", params);
-     await loadRetailers(params);
-   });
+    searchBtn.addEventListener("click", async () => {
+      const searchInput = document.querySelector(".input-box input");
+      const categoryText = document.querySelector(
+        "#categoryDropdown .dropdown-btn span",
+      );
+      const radiusText = document.querySelector(
+        "#radiusDropdown .dropdown-btn span",
+      );
+      const searchValue = searchInput?.value?.trim();
+      const categoryValue = categoryText?.innerText?.includes("Select")
+        ? null
+        : categoryText.innerText;
+      const radiusValue = radiusText?.innerText?.includes("Radius")
+        ? null
+        : radiusText.innerText;
+      const params = {};
+      if (searchValue) params.search = searchValue;
+      if (categoryValue) params.category = categoryValue;
+      // ✅ If radius selected → get current location
+      if (radiusValue) {
+        try {
+          const position = await getCurrentLocation();
+          params.lat = position.lat;
+          params.lng = position.lng;
+          params.radius = radiusValue.replace(" ", ""); // 5 km → 5km
+          console.log("📍 Current Location:", position);
+        } catch (err) {
+          console.error("Location error:", err);
+          alert(
+            "Unable to fetch current location. Please allow location access.",
+          );
+          return;
+        }
+      }
+      console.log("Search Params:", params);
+      await loadRetailers(params);
+    });
   }
 
   await loadRetailers();
@@ -121,7 +121,7 @@ async function initApp() {
   console.log("Map provider detected:", App.mapProvider);
 
   //await loadRetailers();  // ✅ wait for data first
-  
+
   switch (App.mapProvider) {
     case MAP_PROVIDERS.GOOGLE:
       await loadGoogleMapsAndInitMap();
@@ -190,10 +190,10 @@ async function reverseGeocodeLeaflet(lat, lng) {
     if (!response.ok) throw new Error('Geocode Leaflet request failed');
     const data = await response.json();
     const addr = data.address;
-    console.log('Nominatim reverse geocode result:', addr); 
+    console.log('Nominatim reverse geocode result:', addr);
     // Return most specific available location name
     return (
-      addr.state_district+", "+ addr.state
+      addr.state_district + ", " + addr.state
     );
   } catch (error) {
     console.error('Nominatim reverse geocoding failed:', error);
@@ -257,7 +257,7 @@ async function initCurrentLocationButton() {
   const currentLocationBtn = document.getElementById('current-location-btn');
   const resetLocationBtn = document.getElementById('reset-location-btn');
   const inputField = document.querySelector('input[type="text"].dropdown-btn');
-  
+
   if (currentLocationBtn && resetLocationBtn) {
     console.log("current-location-btn element found");
     console.log("reset-location-btn element found");
@@ -270,8 +270,8 @@ async function initCurrentLocationButton() {
   // Add backspace key listener to reset location (only if location is set)
   if (inputField) {
     inputField.addEventListener('keydown', (event) => {
-      if ((event.key === 'Backspace' || event.keyCode === 8) && 
-          UserLocation.latitude !== null && UserLocation.longitude !== null) {
+      if ((event.key === 'Backspace' || event.keyCode === 8) &&
+        UserLocation.latitude !== null && UserLocation.longitude !== null) {
         event.preventDefault(); // Prevent default backspace behavior
         resetiInitApp();
       }
@@ -284,7 +284,7 @@ async function resetiInitApp() {
     console.log("Resetting to initial store list and map view...");
     const currentLocationBtn = document.getElementById('current-location-btn');
     const resetLocationBtn = document.getElementById('reset-location-btn');
-    
+
     // Clear all markers from map
     if (App.markers.length > 0) {
       App.markers.forEach(m => {
@@ -315,17 +315,17 @@ async function resetiInitApp() {
     // Reload all retailers
     await loadRetailers();
     updateRetailerCount(App.stores.length);
-  
+
     // Reinitialize map with all retailers
     if (App.mapProvider === MAP_PROVIDERS.GOOGLE) {
       await reinitializeGoogleMap();
     } else {
       await reinitializeLeafletMap();
     }
-    
+
     console.log("Reset complete. Showing all retailers:", App.stores.length);
   } catch (error) {
-    console.error('Error resetting to initial view:', error); 
+    console.error('Error resetting to initial view:', error);
   }
 }
 
@@ -337,7 +337,7 @@ async function loadNearbyStores() {
     console.log("loadNearbyStores");
     const currentLocationBtn = document.getElementById('current-location-btn');
     const resetLocationBtn = document.getElementById('reset-location-btn');
-    
+
     if (currentLocationBtn && resetLocationBtn) {
       currentLocationBtn.style.display = 'none';
       // resetLocationBtn.style.display = 'block';
@@ -363,7 +363,7 @@ async function loadNearbyStores() {
     const nearbyStores = filterNearbyStores(App.stores, NEARBY_STORES_RADIUS_KM);
     console.log("Nearby stores:", nearbyStores);
 
-     // ✅ Hide loader before any alert or render
+    // ✅ Hide loader before any alert or render
     hideLocationLoader();
 
     if (nearbyStores.length === 0) {
@@ -411,7 +411,7 @@ async function loadNearbyStores() {
     hideLocationLoader();
 
     alert('Unable to get your location. Please enable location services and try again.');
-    
+
     const currentLocationBtn = document.getElementById('current-location-btn');
     if (currentLocationBtn) {
       currentLocationBtn.disabled = false;
@@ -490,9 +490,9 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c;
   return distance;
@@ -600,7 +600,7 @@ async function reinitializeLeafletMap() {
   App.markers = [];
 
   const validStores = App.stores.filter(s => s.latitude && s.longitude);
-  
+
   // Add markers
   validStores.forEach(store => {
     const lat = parseFloat(store.latitude);
@@ -653,7 +653,7 @@ async function reinitializeLeafletMap() {
 
 /***** end current user location code  */
 
-   
+
 function getCurrentLocation() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -729,8 +729,8 @@ async function loadRetailers(params = {}) {
   }
 }
 
-  async function loadLeafletAndInitMap() {
-  console.log("Initializing Leaflet Map with stores:", App.stores); 
+async function loadLeafletAndInitMap() {
+  console.log("Initializing Leaflet Map with stores:", App.stores);
   const mapContainer = document.getElementById('map-container');
   if (!mapContainer) return;
 
@@ -761,7 +761,7 @@ async function loadRetailers(params = {}) {
 
   // ✅ Initialize map
   //App.map = L.map(mapContainer).setView([avgLat, avgLng], 5);
-console.log("validStores ",validStores);
+  console.log("validStores ", validStores);
   App.map = L.map(mapContainer);
 
   // ✅ Tile layer enabled (this was commented out before!)
@@ -779,7 +779,7 @@ console.log("validStores ",validStores);
       title: store.name,
       alt: store.name
     }).addTo(App.map);*/
-  
+
     // ✅ After (custom icon)
     const customIcon = L.icon({
       iconUrl: 'https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Mock_Map_Markers.svg',
@@ -792,7 +792,7 @@ console.log("validStores ",validStores);
       icon: customIcon,
       title: store.name
     }).addTo(App.map);
-    
+
 
     const address = [
       store.address_line1,
@@ -812,7 +812,7 @@ console.log("validStores ",validStores);
     `);
 
     App.markers.push({ marker, storeId: store.id });
-    
+
   });
   console.log("Markers added to map:", App.markers.length);
   // Auto-fit map to show all markers
@@ -835,7 +835,7 @@ async function loadGoogleMapsAndInitMap() {
   // Load Google Maps API and wait for it
   await new Promise((resolve, reject) => {
     const googleMapsScript = document.createElement('script');
-    
+
     googleMapsScript.src = 'https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY';
     googleMapsScript.async = true;
     googleMapsScript.defer = true;
@@ -916,10 +916,10 @@ async function loadGoogleMapsAndInitMap() {
       infoWindow.open(App.map, marker);
     });
 
-    App.markers.push({ 
-      marker, 
-      storeId: store.id, 
-      infoWindow 
+    App.markers.push({
+      marker,
+      storeId: store.id,
+      infoWindow
     });
   });
 
@@ -928,29 +928,29 @@ async function loadGoogleMapsAndInitMap() {
     App.map.fitBounds(bounds);
   }
 }
-  /* ===========================
-     NEW CONTENT ADDED BELOW
-  =========================== */
-   
-  function renderRetailers(data) {
-    const container = document.getElementById("retailers-list");
-   
-    if (!container) return;
-   
-    container.innerHTML = "";
-   
-    data.forEach((item) => {
-      const address = [
-        item.address_line1,
-        item.address_line2,
-        item.city,
-        item.state,
-        item.postal_code,
-      ]
-        .filter(Boolean)
-        .join(", ");
-   
-      container.innerHTML += `
+/* ===========================
+   NEW CONTENT ADDED BELOW
+=========================== */
+
+function renderRetailers(data) {
+  const container = document.getElementById("retailers-list");
+
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  data.forEach((item) => {
+    const address = [
+      item.address_line1,
+      item.address_line2,
+      item.city,
+      item.state,
+      item.postal_code,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    container.innerHTML += `
         <div class="custom-location-card">
           <div class="content-block">
    
@@ -968,9 +968,8 @@ async function loadGoogleMapsAndInitMap() {
                 <span>${address || "Address not available"}</span>
               </li>
    
-              ${
-                item.phone
-                  ? `
+              ${item.phone
+        ? `
                 <li>
                   <em>
                     <img src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Call.svg?v=1777545764" alt="Phone Icon">
@@ -978,12 +977,11 @@ async function loadGoogleMapsAndInitMap() {
                   <a href="tel:${item.phone}">${item.phone}</a>
                 </li>
               `
-                  : ""
-              }
+        : ""
+      }
    
-              ${
-                item.website_url
-                  ? `
+              ${item.website_url
+        ? `
                 <li>
                   <em>
                     <img src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Website.svg?v=1777545764" alt="Web Icon">
@@ -993,265 +991,262 @@ async function loadGoogleMapsAndInitMap() {
                   </a>
                 </li>
               `
-                  : ""
-              }
+        : ""
+      }
    
             </ul>
           </div>
    
           <div class="btn-wrap">
    
-            ${
-              item.website_url
-                ? `
+            ${item.website_url
+        ? `
               <a href="${item.website_url}"
                  class="btn secondary-btn"
                  target="_blank">
                  Visit website
               </a>
             `
-                : ""
-            }
+        : ""
+      }
    
-            ${
-              item.google_maps_link
-                ? `
+            ${item.google_maps_link
+        ? `
               <a href="${item.google_maps_link}"
                  class="btn btn-primary"
                  target="_blank">
                  Get Direction
               </a>
             `
-                : ""
-            }
+        : ""
+      }
    
           </div>
         </div>
       `;
-    });
-  }
-   
-  function updateRetailerCount(count) {
-    const el = document.getElementById("dealer-count");
-   
-    if (el) {
-      el.innerText = `Showing ${count} authorized location${
-        count !== 1 ? "s" : ""
+  });
+}
+
+function updateRetailerCount(count) {
+  const el = document.getElementById("dealer-count");
+
+  if (el) {
+    el.innerText = `Showing ${count} authorized location${count !== 1 ? "s" : ""
       }`;
-    }
   }
-   
-  function cleanUrl(url) {
-    return url.replace("https://", "").replace("http://", "").replace("/", "");
-  }
+}
 
-  async function loadCategories() {
-    try {
-      const baseUrl = window.RETAILER_API_URL || "";
-      const shop = window.SHOP_DOMAIN; 
-  
-      const response = await fetch(`${baseUrl}/categories?shop=${shop}`);
-  
-      if (!response.ok) {
-        throw new Error("API failed");
-      }
-  
-      const result = await response.json();
-  
-      if (result.success) {
-        renderCategories(result.data);
-      }
-  
-      console.log("FRONTEND DATA:", result.data);
-    } catch (error) {
-      console.error("Category load failed:", error);
-    }
-  }
+function cleanUrl(url) {
+  return url.replace("https://", "").replace("http://", "").replace("/", "");
+}
 
-  function renderCategories(categories) {
-    const dropdown = document.querySelector("#categoryDropdown .dropdown-list");
-  
-    if (!dropdown) return;
-  
-    dropdown.innerHTML = "";
-  
-    categories.forEach((cat) => {
-      const div = document.createElement("div");
-      div.innerText = cat.name;
-  
-      div.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const btn = document.querySelector("#categoryDropdown .dropdown-btn span");
-        btn.classList.remove("placeholder");
-        btn.innerText = cat.name;
-  
-        document.getElementById("categoryDropdown").classList.remove("active");
-      });
-  
-      dropdown.appendChild(div);
+async function loadCategories() {
+  try {
+    const baseUrl = window.RETAILER_API_URL || "";
+    const shop = window.SHOP_DOMAIN;
+
+    const response = await fetch(`${baseUrl}/categories?shop=${shop}`);
+
+    if (!response.ok) {
+      throw new Error("API failed");
+    }
+
+    const result = await response.json();
+
+    if (result.success) {
+      renderCategories(result.data);
+    }
+
+    console.log("FRONTEND DATA:", result.data);
+  } catch (error) {
+    console.error("Category load failed:", error);
+  }
+}
+
+function renderCategories(categories) {
+  const dropdown = document.querySelector("#categoryDropdown .dropdown-list");
+
+  if (!dropdown) return;
+
+  dropdown.innerHTML = "";
+
+  categories.forEach((cat) => {
+    const div = document.createElement("div");
+    div.innerText = cat.name;
+
+    div.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const btn = document.querySelector("#categoryDropdown .dropdown-btn span");
+      btn.classList.remove("placeholder");
+      btn.innerText = cat.name;
+
+      document.getElementById("categoryDropdown").classList.remove("active");
     });
-  }
 
-  function setupDropdowns() {
-  }
+    dropdown.appendChild(div);
+  });
+}
 
-  function setupLocationSearch() {
-    const input = document.querySelector('input[name="location-address"]');
-    const dropdown = input.closest(".dropdown");
-    const list = dropdown.querySelector(".dropdown-list");
-   
-    let debounceTimer;
-   
-    input.addEventListener("input", () => {
-      const value = input.value.trim();
-   
-      // clear previous timer
-      clearTimeout(debounceTimer);
-   
-      // small debounce (300ms)
-      debounceTimer = setTimeout(async () => {
-        if (!value) {
-          list.innerHTML = "";
-          dropdown.classList.remove("active");
-          return;
-        }
-   
-        // open dropdown
-        dropdown.classList.add("active");
-   
-        // call API
-        const results = await searchRetailers(value);
-   
-        renderLocationDropdown(results, list, input, dropdown);
-      }, 300);
-    });
-  }
-   
-  async function searchRetailers(search) {
-    try {
-      const baseUrl = window.RETAILER_API_URL || "";
-   
-      const query = new URLSearchParams();
-      query.append("search", search);
-   
-      const url = `${baseUrl}/retailers?${query.toString()}`;
-   
-      const res = await fetch(url);
-      const result = await res.json();
-   
-      if (result.success) {
-        return result.data;
+function setupDropdowns() {
+}
+
+function setupLocationSearch() {
+  const input = document.querySelector('input[name="location-address"]');
+  const dropdown = input.closest(".dropdown");
+  const list = dropdown.querySelector(".dropdown-list");
+
+  let debounceTimer;
+
+  input.addEventListener("input", () => {
+    const value = input.value.trim();
+
+    clearTimeout(debounceTimer);
+
+    debounceTimer = setTimeout(async () => {
+
+      // ✅ WHEN EMPTY → RESET DATA
+      if (!value) {
+        list.innerHTML = "";
+        dropdown.classList.remove("active");
+
+        await loadRetailers(); // 🔥 main fix
+
+        return;
       }
-   
-      return [];
-    } catch (err) {
-      console.error("Search API error:", err);
-      return [];
+
+      dropdown.classList.add("active");
+
+      const results = await searchRetailers(value);
+
+      renderLocationDropdown(results, input, dropdown);
+
+    }, 300);
+  });
+}
+
+async function searchRetailers(search) {
+  try {
+    const baseUrl = window.RETAILER_API_URL || "";
+
+    const query = new URLSearchParams();
+    query.append("search", search);
+
+    const url = `${baseUrl}/retailers?${query.toString()}`;
+
+    const res = await fetch(url);
+    const result = await res.json();
+
+    if (result.success) {
+      return result.data;
     }
+
+    return [];
+  } catch (err) {
+    console.error("Search API error:", err);
+    return [];
   }
-   
-  function renderLocationDropdown(data, input, dropdown) {
-    const list = document.getElementById("locationDropdownList");
-   
-    if (!list) return;
-   
-    list.innerHTML = "";
-   
-    if (!data.length) {
-      list.innerHTML = `<div class="no-data">No results found</div>`;
-      return;
-    }
-   
-    data.forEach((item) => {
-      const wrapper = document.createElement("div");
-      wrapper.className = "location-list-item";
-   
-      const fullAddress = [
-        item.address_line1,
-        item.address_line2,
-        item.city,
-        item.state,
-        item.postal_code,
-      ]
-        .filter(Boolean)
-        .join(", ");
-   
-      wrapper.innerHTML = `
+}
+
+function renderLocationDropdown(data, input, dropdown) {
+  const list = document.getElementById("locationDropdownList");
+
+  if (!list) return;
+
+  list.innerHTML = "";
+
+  if (!data.length) {
+    list.innerHTML = `<div class="no-data">No results found</div>`;
+    return;
+  }
+
+  data.forEach((item) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "location-list-item";
+
+    const fullAddress = [
+      item.address_line1,
+      item.address_line2,
+      item.city,
+      item.state,
+      item.postal_code,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    wrapper.innerHTML = `
   <h5>
   <span class="icon-wrap">
-  <img src="/assets/location-pin.svg" alt="Location Icon">
+  <img src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/location-pin.svg?v=1777982203" alt="Location Icon">
   </span>
           ${item.name}
   </h5>
   <p>${fullAddress}</p>
       `;
-   
-      // ✅ THIS WILL WORK ONCE CSS IS FIXED
-     wrapper.onclick = function () {
-    console.log("CLICK WORKING"); // 👈 check this in console
-    input.value = item.name;
-    console.log("item.name",item.name)
-    console.log("input.value",input.value)
-    let myInp = $(this).parents(".input-box").find("input");
-    console.log(myInp);
-    myInp.val(myInp)
-    dropdown.classList.remove("active");
-  };
-   
-      list.appendChild(wrapper);
-    });
-  }
 
-  async function loadFilterSettings() {
-    try {
-      const baseUrl = window.RETAILER_API_URL || "";
-      const shop = window.SHOP_DOMAIN; // 👈 important
-  
-      console.log("SHOP DOMAIN:", shop); // debug
-  
-      const res = await fetch(`${baseUrl}/settings?shop=${shop}`);
-      const result = await res.json();
-  
-      console.log("FILTER API RESPONSE:", result); // debug
-  
-      if (result.success && result.data.length > 0) {
-        const filterEnabled = result.data[0].filter_enabled;
-  
-        const filterBlock = document.querySelector(".dropdowns-wrap");
-  
-        if (filterBlock) {
-          filterBlock.style.display = filterEnabled ? "block" : "none";
-        }
+    // ✅ THIS WILL WORK ONCE CSS IS FIXED
+    wrapper.onclick = function () {
+      input.value = item.name;
+      dropdown.classList.remove("active");
+
+      // trigger search
+      document.querySelector(".search-container .btn-primary").click();
+    };
+
+    list.appendChild(wrapper);
+  });
+}
+
+async function loadFilterSettings() {
+  try {
+    const baseUrl = window.RETAILER_API_URL || "";
+    const shop = window.SHOP_DOMAIN;
+
+    console.log("SHOP DOMAIN:", shop);
+
+    const res = await fetch(`${baseUrl}/settings?shop=${shop}`);
+    const result = await res.json();
+
+    console.log("FILTER API RESPONSE:", result);
+
+    if (result.success && result.data.length > 0) {
+      const filterEnabled = result.data[0].filter_enabled;
+
+      const rightWrap = document.querySelector(".right-wrap");
+
+      if (filterEnabled) {
+        rightWrap.classList.remove("no-filters"); // ✅ show filters
+      } else {
+        rightWrap.classList.add("no-filters"); // ❌ hide filters via class
       }
-  
-    } catch (err) {
-      console.error("Filter API error:", err);
     }
+
+  } catch (err) {
+    console.error("Filter API error:", err);
+  }
+}
+
+function updateDealerHeader({ search, count, radius }) {
+  const titleEl = document.getElementById("dealer-title");
+  const subtitleEl = document.getElementById("dealer-subtitle");
+
+  // ✅ Case 1: Search applied
+  if (search) {
+    titleEl.innerText = `Dealers near "${search}"`;
+
+    subtitleEl.innerText =
+      count > 0
+        ? `Showing ${count} authorized location${count !== 1 ? "s" : ""}${radius ? ` within ${radius}` : ""
+        }`
+        : `No dealers found for "${search}"`;
   }
 
-  function updateDealerHeader({ search, count, radius }) {
-    const titleEl = document.getElementById("dealer-title");
-    const subtitleEl = document.getElementById("dealer-subtitle");
-  
-    // ✅ Case 1: Search applied
-    if (search) {
-      titleEl.innerText = `Dealers near "${search}"`;
-  
-      subtitleEl.innerText =
-        count > 0
-          ? `Showing ${count} authorized location${count !== 1 ? "s" : ""}${
-              radius ? ` within ${radius}` : ""
-            }`
-          : `No dealers found for "${search}"`;
-    }
-  
-    // ✅ Case 2: No search (default state)
-    else {
-      titleEl.innerText = "Dealers";
-  
-      subtitleEl.innerText =
-        count > 0
-          ? `Showing ${count} available dealer${count !== 1 ? "s" : ""}`
-          : `No dealers available. Try using filters or search.`;
-    }
+  // ✅ Case 2: No search (default state)
+  else {
+    titleEl.innerText = "Dealers";
+
+    subtitleEl.innerText =
+      count > 0
+        ? `Showing ${count} available dealer${count !== 1 ? "s" : ""}`
+        : `No dealers available. Try using filters or search.`;
   }
+}

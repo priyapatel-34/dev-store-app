@@ -60,6 +60,7 @@ export default defineConfig({
       "^/app/retailers(/|(\\?.*)?$)": proxyOptions,
       "^/app/categories(/|(\\?.*)?$)": proxyOptions,
       "^/app/settings(/|(\\?.*)?$)": proxyOptions,
+      "^/app/countries(/|(\\?.*)?$)": proxyOptions,      
       "^/retailers(/|(\\?.*)?$)": proxyOptions,
       "^/categories(/|(\\?.*)?$)": proxyOptions,
       "^/settings(/|(\\?.*)?$)": proxyOptions,

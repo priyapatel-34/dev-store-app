@@ -1,0 +1,97 @@
+@font-face {
+    font-family: "sennheiser-italic";
+    src: url('{{ "sennheiser-italic.eot" | file_url }}');
+    src: url('{{ "sennheiser-italic.eot?#iefix" | file_url }}') format("embedded-opentype"),
+      url('{{ "sennheiser-italic.woff2" | file_url }}') format("woff2"),
+      url('{{ "sennheiser-italic.woff" | file_url }}') format("woff"),
+      url('{{ "sennheiser-italic.ttf" | file_url }}') format("truetype"),
+      url('{{ "sennheiser-italic.svg#sennheiser-italic" | file_url }}') format("svg");
+    font-weight: normal;
+    font-style: italic;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: "sennheiser-bold";
+    src: url('{{ "sennheiser-bold.eot" | file_url }}');
+    src: url('{{ "sennheiser-bold.eot?#iefix" | file_url }}') format("embedded-opentype"),
+      url('{{ "sennheiser-bold.woff2" | file_url }}') format("woff2"),
+      url('{{ "sennheiser-bold.woff" | file_url }}') format("woff"),
+      url('{{ "sennheiser-bold.ttf" | file_url }}') format("truetype"),
+      url('{{ "sennheiser-bold.svg#sennheiser-bold" | file_url }}') format("svg");
+    font-style: normal;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: "sennheiser";
+    src: url('{{ "sennheiser-regular.eot" | file_url }}');
+    src: url('{{ "sennheiser-regular.eot?#iefix" | file_url }}') format("embedded-opentype"),
+      url('{{ "sennheiser-regular.woff2" | file_url }}') format("woff2"),
+      url('{{ "sennheiser-regular.woff" | file_url }}') format("woff"),
+      url('{{ "sennheiser-regular.ttf" | file_url }}') format("truetype"),
+      url('{{ "sennheiser-regular.svg#sennheiser-regular" | file_url }}') format("svg");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: "sennheiser-bold-italic";
+    src: url('{{ "sennheiser-bold-italic.eot" | file_url }}');
+    src: url('{{ "sennheiser-bold-italic.eot?#iefix" | file_url }}') format("embedded-opentype"),
+      url('{{ "sennheiser-bold-italic.woff2" | file_url }}') format("woff2"),
+      url('{{ "sennheiser-bold-italic.woff" | file_url }}') format("woff"),
+      url('{{ "sennheiser-bold-italic.ttf" | file_url }}') format("truetype"),
+      url('{{ "sennheiser-bold-italic.svg#sennheiser-bold-italic" | file_url }}') format("svg");
+    font-weight: bold;
+    font-style: italic;
+    font-display: swap;
+  }
+  
+  /* sennheiser-neue fonts */
+  
+  @font-face {
+    font-family: 'Sennheiser Neue';
+    src: url('sennheiser-neue-bold.woff2') format('woff2'),
+        url('sennheiser-neue-bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: 'Sennheiser Neue';
+    src: url('sennheiser-neue-light.woff2') format('woff2'),
+        url('sennheiser-neue-light.woff') format('woff');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: 'Sennheiser Neue';
+    src: url('sennheiser-neue-medium.woff2') format('woff2'),
+        url('sennheiser-neue-medium.woff') format('woff');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: 'Sennheiser Neue Monospaced';
+    src: url('sennheiser-neue-monospaced.woff2') format('woff2'),
+        url('sennheiser-neue-monospaced.woff') format('woff');
+    font-weight: 200;
+    font-style: normal;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: 'Sennheiser Neue';
+    src: url('sennheiser-neue-regular.woff2') format('woff2'),
+        url('sennheiser-neue-regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }

@@ -271,6 +271,10 @@
     flex-wrap: wrap;
 }
 
+.dealer-locations-section .right-wrap.no-filters .dropdowns-wrap {
+    display: none;
+}
+
 .dealer-locations-section .dropdown.category {
     flex: 0 0 62%;
     max-width: 62%;
@@ -365,6 +369,15 @@
     flex-wrap: wrap;
     gap: 4px;
     align-items: flex-start;
+}
+
+.dealer-locations-section .location-list-item p {
+    line-clamp: 1;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: 1;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .dealer-locations-section .location-list-item .icon-wrap {
