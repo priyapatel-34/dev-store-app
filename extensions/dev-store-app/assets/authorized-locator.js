@@ -1,6 +1,6 @@
-const GOOGLE_MAPS_API_KEY = 'AIzaSyDHtyLmeYuEQGSsZQMB6FOTWe1IiGtJ7Bg';
-const NEARBY_STORES_RADIUS_KM = 5;
-const GOOGLE_MAP_ID = 'DEMO_MAP_ID';
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+const NEARBY_STORES_RADIUS_KM = process.env.NEARBY_STORES_RADIUS_KM;
+const GOOGLE_MAP_ID = process.env.GOOGLE_MAP_ID;
 const UserLocation = { latitude: null, longitude: null, accuracy: null };
 
 function getDistanceUnit() {
