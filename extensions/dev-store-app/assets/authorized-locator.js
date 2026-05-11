@@ -1,6 +1,6 @@
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-const NEARBY_STORES_RADIUS_KM = process.env.NEARBY_STORES_RADIUS_KM;
-const GOOGLE_MAP_ID = process.env.GOOGLE_MAP_ID;
+const GOOGLE_MAPS_API_KEY = 'AIzaSyDHtyLmeYuEQGSsZQMB6FOTWe1IiGtJ7Bg';
+const NEARBY_STORES_RADIUS_KM = 5;
+const GOOGLE_MAP_ID = 'DEMO_MAP_ID';
 const UserLocation = { latitude: null, longitude: null, accuracy: null };
 
 function getDistanceUnit() {
@@ -195,8 +195,8 @@ function buildPopupHTML(store) {
     : '';
 
   return `
-    <div style="min-width:220px;max-width:280px;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;padding:4px 2px">
-      <h3 style="margin:0 0 8px;color:#1a73e8;font-size:15px">${store.name}</h3>
+    <div style="min-width:220px;max-width:280px;font-family:'Sennheiser Neue';font-size:12px;line-height:1.5;padding:4px 2px; color: #818183; font-weight: 500;">
+      <h4 style="margin:0 0 8px;color:#000;font-size:16px;font-weight:600;">${store.name}</h4>
       <p style="margin:4px 0"><strong>Address:</strong> ${address || 'N/A'}</p>
       ${distanceHTML}
       ${store.phone

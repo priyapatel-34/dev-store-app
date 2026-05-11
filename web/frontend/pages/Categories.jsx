@@ -42,6 +42,7 @@ const Categories = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [errors, setErrors] = useState({});
+    const [searchValue, setSearchValue] = useState("");
     const pageSize = 10;
 
     const validateCategory = () => {
@@ -58,32 +59,32 @@ const Categories = () => {
 
     const fetchCategories = useCallback(async () => {
         try {
-            setLoading(true);
-
-            const res = await fetch("/app/categories");
-
-            if (!res.ok) {
-                throw new Error(`HTTP error! status: ${res.status}`);
+            const params = new URLSearchParams();
+            if (searchValue.trim()) {
+                params.append("search", searchValue);
             }
-
+            setLoading(true);
+            const res = await fetch(`/app/categories?${params.toString()}`);
             const data = await res.json();
 
-            if (!data.success) {
-                throw new Error(data.message || "Failed to fetch categories");
-            }
-
+            if (data.success) setCategories(data.data);
             setCategories(data.data || []);
         } catch (err) {
             console.error("Fetch Categories Error:", err);
+            showToast(err, true);
             setCategories([]);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [searchValue]);
 
 
     useEffect(() => {
-        fetchCategories();
+        const timer = setTimeout(() => {
+            fetchCategories();
+        }, 400);
+
+        return () => clearTimeout(timer);
     }, [fetchCategories]);
 
     const totalPages = Math.max(1, Math.ceil(categories.length / pageSize));
@@ -219,7 +220,8 @@ const Categories = () => {
             <IndexTable.Row
                 id={String(category.id)}
                 key={category.id}
-                selected={selectedResources.includes(category.id)}
+                selected={selectedResources.includes(category.id) ||
+                    selectedResources.includes(String(category.id))}
                 position={index}
             >
                 {/* Category ID */}
@@ -302,13 +304,41 @@ const Categories = () => {
                 )}
 
                 <Card padding="0">
+                    <div
+                        style={{
+                            padding: "16px",
+                            borderBottom: "1px solid #e1e3e5",
+                            background: "#f9fafb",
+                        }}
+                    >
+                        <div
+                            style={{
+                                display: "flex",
+                            }}
+                        >
+                            <div
+                                style={{
+                                    flex: 1,
+                                }}
+                            >
+                                <TextField
+                                    label=""
+                                    value={searchValue}
+                                    onChange={setSearchValue}
+                                    placeholder="Search categories..."
+                                    autoComplete="off"
+                                    clearButton
+                                    onClearButtonClick={() => setSearchValue("")}
+                                />
+                            </div>
+                        </div>
+                    </div>
                     {loading ? (
                         <div style={{ padding: "40px", textAlign: "center" }}>
                             <Spinner accessibilityLabel="Loading retailers" size="large" />
                         </div>
                     ) : categories.length === 0 ? (
-                        <EmptyState heading="No categories available" image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png">
-                            <p>Create a category to start organizing retailer data.</p>
+                        <EmptyState heading="No categories Found" image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png">
                         </EmptyState>
                     ) : (
                         <>
@@ -325,7 +355,7 @@ const Categories = () => {
                             </Box>
 
                             <Box padding="400">
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginLeft: "25px" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "10px" }}>
                                     <Text as="p" tone="subdued">
                                         Page {page} of {totalPages}
                                     </Text>

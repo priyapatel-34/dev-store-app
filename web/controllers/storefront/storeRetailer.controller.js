@@ -10,14 +10,14 @@ export async function getRetailers(req, res) {
 
     const cleanSearch = search ? search.trim().replace(/\s+/g, " ") : null;
     const settingsResult = await pool.query(
-          `
+      `
       SELECT show_global_retailers
       FROM admin_settings
       WHERE store_id = $1
       LIMIT 1
       `,
-          [store_id]
-        );
+      [store_id]
+    );
 
     const showGlobalRetailers =
       settingsResult.rows[0]?.show_global_retailers ?? false;

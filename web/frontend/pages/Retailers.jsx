@@ -24,7 +24,7 @@ import {
   Autocomplete
 } from "@shopify/polaris";
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 5;
 
 const RETAILER_TYPE_OPTIONS = [
   { label: "Select type…", value: "" },
@@ -712,11 +712,12 @@ const RetailersManager = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showGlobalRetailers, setShowGlobalRetailers] =
-  useState(false);
+    useState(false);
 
-const [isUpdatingSettings, setIsUpdatingSettings] =
-  useState(false);
+  const [isUpdatingSettings, setIsUpdatingSettings] =
+    useState(false);
   const [toast, setToast] = useState(null);
+  const [searchValue, setSearchValue] = useState("");
   const showToast = (message, isError = false) => setToast({ message, error: isError });
   const totalPages = Math.max(1, Math.ceil(retailers.length / PAGE_SIZE));
   const paginatedRetailers = useMemo(
@@ -736,37 +737,37 @@ const [isUpdatingSettings, setIsUpdatingSettings] =
     })),
   ];
 
-useEffect(() => {
-  const fetchSettings = async () => {
-    try {
-      const res = await fetch("/app/settings");
-      const data = await res.json();
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch("/app/settings");
+        const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(
-          data.error || "Failed to fetch settings"
+        if (!res.ok || !data.success) {
+          throw new Error(
+            data.error || "Failed to fetch settings"
+          );
+        }
+
+        setFilterEnabled(
+          data.data?.filter_enabled ?? false
+        );
+
+        setShowGlobalRetailers(
+          data.data?.show_global_retailers ?? false
+        );
+
+      } catch (err) {
+        console.error(err);
+        showToast(
+          err.message || "Failed to fetch settings",
+          true
         );
       }
+    };
 
-      setFilterEnabled(
-        data.data?.filter_enabled ?? false
-      );
-
-      setShowGlobalRetailers(
-        data.data?.show_global_retailers ?? false
-      );
-
-    } catch (err) {
-      console.error(err);
-      showToast(
-        err.message || "Failed to fetch settings",
-        true
-      );
-    }
-  };
-
-  fetchSettings();
-}, []);
+    fetchSettings();
+  }, []);
 
   const { selectedResources, allResourcesSelected, handleSelectionChange } =
     useIndexResourceState(paginatedRetailers);
@@ -803,8 +804,12 @@ useEffect(() => {
 
   const fetchRetailers = useCallback(async () => {
     try {
+      const params = new URLSearchParams();
+      if (searchValue.trim()) {
+        params.append("search", searchValue);
+      }
       setLoading(true);
-      const res = await fetch("/app/retailers");
+      const res = await fetch(`/app/retailers?${params.toString()}`);
       const data = await res.json();
       if (data.success) setRetailers(data.data);
     } catch (err) {
@@ -813,9 +818,15 @@ useEffect(() => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchValue]);
 
-  useEffect(() => { fetchRetailers(); }, [fetchRetailers]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchRetailers();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [fetchRetailers]);
 
   const handleCreate = async () => {
     const errors = validateRetailerData(newRetailer);
@@ -876,80 +887,80 @@ useEffect(() => {
 
   const handleCloseEdit = () => { setEditingRetailer(null); setEditRetailerErrors({}); };
 
-const handleToggle = async (value) => {
-  try {
-    setIsUpdatingSettings(true);
-    const res = await fetch("/app/settings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        filter_enabled: value,
-        show_global_retailers: showGlobalRetailers,
-      }),
-    });
+  const handleToggle = async (value) => {
+    try {
+      setIsUpdatingSettings(true);
+      const res = await fetch("/app/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          filter_enabled: value,
+          show_global_retailers: showGlobalRetailers,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok || !data.success) {
-      throw new Error(
-        data.error || "Failed to update settings"
+      if (!res.ok || !data.success) {
+        throw new Error(
+          data.error || "Failed to update settings"
+        );
+      }
+
+      setFilterEnabled(value);
+
+      showToast(
+        `Filter ${value ? "enabled" : "disabled"} successfully`
       );
-    }
 
-    setFilterEnabled(value);
-
-    showToast(
-      `Filter ${value ? "enabled" : "disabled"} successfully`
-    );
-
-  } catch (err) {
-    showToast(
-      err.message || "Failed to update settings",
-      true
-    );
-
-  } finally {
-    setIsUpdatingSettings(false);
-  }
-};
-
-const handleGlobalToggle = async (value) => {
-  try {
-    setIsUpdatingSettings(true);
-    const res = await fetch("/app/settings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        filter_enabled: filterEnabled,
-        show_global_retailers: value,
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(
-        data.error || "Failed to update setting"
+    } catch (err) {
+      showToast(
+        err.message || "Failed to update settings",
+        true
       );
+
+    } finally {
+      setIsUpdatingSettings(false);
     }
-    setShowGlobalRetailers(value);
-    showToast(
-      value
-        ? "Global retailers enabled successfully"
-        : "Country-wise retailers enabled successfully"
-    );
-  } catch (err) {
-    showToast(
-      err.message || "Failed to update setting",
-      true
-    );
-  } finally {
-    setIsUpdatingSettings(false);
-  }
-};
+  };
+
+  const handleGlobalToggle = async (value) => {
+    try {
+      setIsUpdatingSettings(true);
+      const res = await fetch("/app/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          filter_enabled: filterEnabled,
+          show_global_retailers: value,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(
+          data.error || "Failed to update setting"
+        );
+      }
+      setShowGlobalRetailers(value);
+      showToast(
+        value
+          ? "Global retailers enabled successfully"
+          : "Country-wise retailers enabled successfully"
+      );
+    } catch (err) {
+      showToast(
+        err.message || "Failed to update setting",
+        true
+      );
+    } finally {
+      setIsUpdatingSettings(false);
+    }
+  };
 
   const handleConfirmDelete = async () => {
     try {
@@ -1052,103 +1063,132 @@ const handleGlobalToggle = async (value) => {
 
       titleMetadata={<Badge tone="info">{`${retailers.length} total`}</Badge>}
     >
-      <div style={{ marginBottom: "16px" }}>
-        <Card>
-        <Box padding="400">
-            <div style={{
+      <div style={{ marginBottom: "20px" }}>
+        <Card padding="0">
+          <div
+            style={{
               display: "flex",
-              padding: '10px',
+              justifyContent: "space-between",
               alignItems: "center",
-              justifyContent: "space-between"
-            }}>
-
-              <div>
-                <Text variant="headingSm"> Global Retailers</Text>
-                <Text tone="subdued">
-                Enable to show retailers from all countries
-                </Text>
-              </div>
-
-              <button
-                onClick={() => handleGlobalToggle(!showGlobalRetailers)}
-                disabled={isUpdatingSettings}
+              padding: "18px 20px",
+              borderBottom: "1px solid #e1e3e5",
+              background: "#ffffff",
+            }}
+          >
+            <div>
+              <div
                 style={{
-                  position: "relative",
-                  width: "48px",
-                  height: "28px",
-                  backgroundColor: showGlobalRetailers ? "#008060" : "#c4cdd5",
-                  borderRadius: "999px",
-                  border: "none",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  padding: "0"
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "#111827",
+                  marginBottom: "4px",
                 }}
               >
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "4px",
-                    left: showGlobalRetailers ? "24px" : "4px",
-                    width: "20px",
-                    height: "20px",
-                    background: "#fff",
-                    borderRadius: "50%",
-                    transition: "all 0.3s ease",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
-                  }}
-                />
-              </button>
-
-            </div>
-          </Box>
-          <Box padding="400">
-            <div style={{
-              display: "flex",
-              padding: '10px',
-              alignItems: "center",
-              justifyContent: "space-between"
-            }}>
-
-              {/* LEFT SIDE */}
-              <div>
-                <Text variant="headingSm">Filter Settings</Text>
-                <Text tone="subdued">
-                  Show or hide filter options on the storefront
-                </Text>
+                Global Retailers
               </div>
 
-              {/* RIGHT SIDE TOGGLE */}
-              <button
-                onClick={() => handleToggle(!filterEnabled)}
+              <div
                 style={{
-                  position: "relative",
-                  width: "48px",
-                  height: "28px",
-                  backgroundColor: filterEnabled ? "#008060" : "#c4cdd5",
-                  borderRadius: "999px",
-                  border: "none",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  padding: "0"
+                  fontSize: "13px",
+                  color: "#6b7280",
                 }}
               >
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "4px",
-                    left: filterEnabled ? "24px" : "4px",
-                    width: "20px",
-                    height: "20px",
-                    background: "#fff",
-                    borderRadius: "50%",
-                    transition: "all 0.3s ease",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
-                  }}
-                />
-              </button>
-
+                Show retailers from all countries on storefront
+              </div>
             </div>
-          </Box>
+
+            <button
+              onClick={() => handleGlobalToggle(!showGlobalRetailers)}
+              disabled={isUpdatingSettings}
+              style={{
+                position: "relative",
+                width: "46px",
+                height: "26px",
+                background: showGlobalRetailers ? "#008060" : "#d1d5db",
+                borderRadius: "999px",
+                border: "none",
+                cursor: "pointer",
+                transition: "0.25s ease",
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: "3px",
+                  left: showGlobalRetailers ? "23px" : "3px",
+                  width: "20px",
+                  height: "20px",
+                  background: "#fff",
+                  borderRadius: "50%",
+                  transition: "0.25s ease",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                }}
+              />
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "18px 20px",
+              background: "#ffffff",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "#111827",
+                  marginBottom: "4px",
+                }}
+              >
+                Filter Settings
+              </div>
+
+              <div
+                style={{
+                  fontSize: "13px",
+                  color: "#6b7280",
+                }}
+              >
+                Enable category and location filters on storefront
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleToggle(!filterEnabled)}
+              disabled={isUpdatingSettings}
+              style={{
+                position: "relative",
+                width: "46px",
+                height: "26px",
+                background: filterEnabled ? "#008060" : "#d1d5db",
+                borderRadius: "999px",
+                border: "none",
+                cursor: "pointer",
+                transition: "0.25s ease",
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: "3px",
+                  left: filterEnabled ? "23px" : "3px",
+                  width: "20px",
+                  height: "20px",
+                  background: "#fff",
+                  borderRadius: "50%",
+                  transition: "0.25s ease",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+                }}
+              />
+            </button>
+          </div>
         </Card>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -1172,16 +1212,44 @@ const handleGlobalToggle = async (value) => {
         )}
 
         <Card padding="0">
+          <div
+            style={{
+              padding: "16px",
+              borderBottom: "1px solid #e1e3e5",
+              background: "#f9fafb",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+              }}
+            >
+              <div
+                style={{
+                  flex: 1,
+                }}
+              >
+                <TextField
+                  label=""
+                  value={searchValue}
+                  onChange={setSearchValue}
+                  placeholder="Search retailers..."
+                  autoComplete="off"
+                  clearButton
+                  onClearButtonClick={() => setSearchValue("")}
+                />
+              </div>
+            </div>
+          </div>
           {loading ? (
             <div style={{ padding: "40px", textAlign: "center" }}>
               <Spinner accessibilityLabel="Loading retailers" size="large" />
             </div>
           ) : retailers.length === 0 ? (
             <EmptyState
-              heading="No retailers yet"
+              heading="No retailers Found"
               image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
             >
-              <p>Add retailer data manually or import a CSV file to get started.</p>
             </EmptyState>
           ) : (
             <>
@@ -1196,8 +1264,8 @@ const handleGlobalToggle = async (value) => {
               </IndexTable>
 
               <Box padding="400">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text as="p" tone="subdued" style={{ marginLeft: "15px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "10px" }}>
+                  <Text as="p" tone="subdued">
                     Page {page} of {totalPages}
                   </Text>
                   <Pagination

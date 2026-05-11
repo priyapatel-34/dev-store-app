@@ -51,8 +51,10 @@ async function getShopIdFromSession(res) {
 export async function getRetailers(req, res) {
   try {
     const store_id = await getShopIdFromSession(res);
-    const { country, category } = req.query;
-
+    const { country, category, search  } = req.query;
+    const cleanSearch = search
+    ? search.trim().replace(/\s+/g, " ")
+    : null;
     const query = `
       SELECT 
         r.id,
@@ -85,9 +87,54 @@ export async function getRetailers(req, res) {
       LEFT JOIN retailer_categories rc ON r.id = rc.retailer_id
       LEFT JOIN categories cat ON rc.category_id = cat.id
 
-      WHERE r.store_id = $1
-        AND ($2::text IS NULL OR c.name ILIKE $2)
-        AND ($3::text IS NULL OR cat.name ILIKE $3)
+     WHERE r.store_id = $1
+      AND ($2::text IS NULL OR c.name ILIKE $2)
+      AND ($3::text IS NULL OR cat.name ILIKE $3)
+      AND (
+        $4::text IS NULL
+        OR length(trim($4)) = 0
+
+        -- Normalize + and - to spaces
+        OR REPLACE(REPLACE(
+          CONCAT_WS(' ',
+            r.name,
+            r.address_line1,
+            r.address_line2,
+            r.city,
+            r.state,
+            r.postal_code
+          ),
+          '+', ' '
+        ), '-', ' ')
+        ILIKE '%' || REPLACE(REPLACE($4, '+', ' '), '-', ' ') || '%'
+
+        -- Remove + and - completely
+        OR REPLACE(REPLACE(
+          CONCAT_WS(' ',
+            r.name,
+            r.address_line1,
+            r.address_line2,
+            r.city,
+            r.state,
+            r.postal_code
+          ),
+          '+', ''
+        ), '-', '')
+        ILIKE '%' || REPLACE(REPLACE($4, '+', ''), '-', '') || '%'
+
+        -- Postal code exact/partial match
+        OR r.postal_code ILIKE '%' || $4 || '%'
+
+        -- Fallback search
+        OR CONCAT_WS(' ',
+          r.name,
+          r.address_line1,
+          r.address_line2,
+          r.city,
+          r.state,
+          r.postal_code
+        ) ILIKE '%' || $4 || '%'
+      )
 
       GROUP BY 
         r.id,
@@ -117,6 +164,7 @@ export async function getRetailers(req, res) {
       store_id,
       country ? `%${country}%` : null,
       category ? `%${category}%` : null,
+      cleanSearch,
     ];
 
     const result = await pool.query(query, values);

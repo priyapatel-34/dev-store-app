@@ -24,11 +24,40 @@ export async function getCategories(req, res) {
   try {
     const store_id = await getShopIdFromSession(res);
 
+    const { search } = req.query;
+
+    const cleanSearch = search
+      ? search.trim().replace(/\s+/g, " ")
+      : null;
+
     const result = await pool.query(
-      `SELECT * FROM categories
-       WHERE store_id = $1
-       ORDER BY id DESC`,
-      [store_id]
+      `
+      SELECT *
+      FROM categories
+      WHERE store_id = $1
+
+      AND (
+        $2::text IS NULL
+        OR length(trim($2)) = 0
+
+        -- Normal search
+        OR name ILIKE '%' || $2 || '%'
+
+        -- Replace + and -
+        OR REPLACE(REPLACE(name, '+', ' '), '-', ' ')
+        ILIKE '%' || REPLACE(REPLACE($2, '+', ' '), '-', ' ') || '%'
+
+        -- Remove + and -
+        OR REPLACE(REPLACE(name, '+', ''), '-', '')
+        ILIKE '%' || REPLACE(REPLACE($2, '+', ''), '-', '') || '%'
+      )
+
+      ORDER BY id DESC
+      `,
+      [
+        store_id,
+        cleanSearch
+      ]
     );
 
     return res.json({
