@@ -711,6 +711,11 @@ const RetailersManager = () => {
   const [countries, setCountries] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showGlobalRetailers, setShowGlobalRetailers] =
+  useState(false);
+
+const [isUpdatingSettings, setIsUpdatingSettings] =
+  useState(false);
   const [toast, setToast] = useState(null);
   const showToast = (message, isError = false) => setToast({ message, error: isError });
   const totalPages = Math.max(1, Math.ceil(retailers.length / PAGE_SIZE));
@@ -731,21 +736,37 @@ const RetailersManager = () => {
     })),
   ];
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch("/app/settings");
-        const data = await res.json();
+useEffect(() => {
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch("/app/settings");
+      const data = await res.json();
 
-        setFilterEnabled(data.data?.filter_enabled ?? false);
-
-      } catch (err) {
-        console.error(err);
+      if (!res.ok || !data.success) {
+        throw new Error(
+          data.error || "Failed to fetch settings"
+        );
       }
-    };
 
-    fetchSettings();
-  }, []);
+      setFilterEnabled(
+        data.data?.filter_enabled ?? false
+      );
+
+      setShowGlobalRetailers(
+        data.data?.show_global_retailers ?? false
+      );
+
+    } catch (err) {
+      console.error(err);
+      showToast(
+        err.message || "Failed to fetch settings",
+        true
+      );
+    }
+  };
+
+  fetchSettings();
+}, []);
 
   const { selectedResources, allResourcesSelected, handleSelectionChange } =
     useIndexResourceState(paginatedRetailers);
@@ -855,26 +876,80 @@ const RetailersManager = () => {
 
   const handleCloseEdit = () => { setEditingRetailer(null); setEditRetailerErrors({}); };
 
-  const handleToggle = async (value) => {
+const handleToggle = async (value) => {
+  try {
+    setIsUpdatingSettings(true);
+    const res = await fetch("/app/settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filter_enabled: value,
+        show_global_retailers: showGlobalRetailers,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(
+        data.error || "Failed to update settings"
+      );
+    }
+
     setFilterEnabled(value);
 
-    try {
-      await fetch("/app/settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          filter_enabled: value
-        }),
-      });
+    showToast(
+      `Filter ${value ? "enabled" : "disabled"} successfully`
+    );
 
-      showToast(`Filter ${value ? "enabled" : "disabled"} successfully`);
-    } catch (err) {
-      console.error(err);
-      showToast("Failed to update setting", true);
+  } catch (err) {
+    showToast(
+      err.message || "Failed to update settings",
+      true
+    );
+
+  } finally {
+    setIsUpdatingSettings(false);
+  }
+};
+
+const handleGlobalToggle = async (value) => {
+  try {
+    setIsUpdatingSettings(true);
+    const res = await fetch("/app/settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filter_enabled: filterEnabled,
+        show_global_retailers: value,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(
+        data.error || "Failed to update setting"
+      );
     }
-  };
+    setShowGlobalRetailers(value);
+    showToast(
+      value
+        ? "Global retailers enabled successfully"
+        : "Country-wise retailers enabled successfully"
+    );
+  } catch (err) {
+    showToast(
+      err.message || "Failed to update setting",
+      true
+    );
+  } finally {
+    setIsUpdatingSettings(false);
+  }
+};
 
   const handleConfirmDelete = async () => {
     try {
@@ -979,6 +1054,53 @@ const RetailersManager = () => {
     >
       <div style={{ marginBottom: "16px" }}>
         <Card>
+        <Box padding="400">
+            <div style={{
+              display: "flex",
+              padding: '10px',
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}>
+
+              <div>
+                <Text variant="headingSm"> Global Retailers</Text>
+                <Text tone="subdued">
+                Enable to show retailers from all countries
+                </Text>
+              </div>
+
+              <button
+                onClick={() => handleGlobalToggle(!showGlobalRetailers)}
+                disabled={isUpdatingSettings}
+                style={{
+                  position: "relative",
+                  width: "48px",
+                  height: "28px",
+                  backgroundColor: showGlobalRetailers ? "#008060" : "#c4cdd5",
+                  borderRadius: "999px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  padding: "0"
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "4px",
+                    left: showGlobalRetailers ? "24px" : "4px",
+                    width: "20px",
+                    height: "20px",
+                    background: "#fff",
+                    borderRadius: "50%",
+                    transition: "all 0.3s ease",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)"
+                  }}
+                />
+              </button>
+
+            </div>
+          </Box>
           <Box padding="400">
             <div style={{
               display: "flex",

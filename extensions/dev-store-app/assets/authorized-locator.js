@@ -1,1252 +1,892 @@
-// Store user's current location
-const UserLocation = {
-  latitude: null,
-  longitude: null,
-  accuracy: null
-};
-// RADIUS_KM: Distance in kilometers to filter nearby stores
-const NEARBY_STORES_RADIUS_KM = 100; // Adjust this value as needed
-// ============================================================
-// MAP PROVIDER CONFIGURATION
-// ============================================================
-const MAP_PROVIDERS = {
-  GOOGLE: 'google',
-  LEAFLET: 'leaflet'
-};
-const DEFAULT_PROVIDER = MAP_PROVIDERS.LEAFLET;//MAP_PROVIDERS.GOOGLE;
-// ============================================================
-// DETECT WHICH PROVIDER TO USE
-// ============================================================
-function detectMapProvider() {
-  return DEFAULT_PROVIDER;
+const GOOGLE_MAPS_API_KEY = 'AIzaSyDHtyLmeYuEQGSsZQMB6FOTWe1IiGtJ7Bg';
+const NEARBY_STORES_RADIUS_KM = 5;
+const GOOGLE_MAP_ID = 'DEMO_MAP_ID';
+const UserLocation = { latitude: null, longitude: null, accuracy: null };
+
+function getDistanceUnit() {
+  return window.DISTANCE_UNIT || 'km';
 }
-// Global state
+
 const App = {
   stores: [],
-  map: null,
-  markers: [],
-  mapProvider: detectMapProvider() // replaces 'google'
-  //mapType: 'google' // 'leaflet' or 'google'
+  map: null,   // google.maps.Map instance
+  markers: [],     // [{ marker: AdvancedMarkerElement, storeId, position }]
 };
 
-document.addEventListener("DOMContentLoaded", async () => {
-  document.querySelectorAll(".dropdown").forEach(drop => {
-    const btn = drop.querySelector(".dropdown-btn");
+// Shared InfoWindow — only one open at a time
+let sharedInfoWindow = null;
 
-    btn.addEventListener("click", () => {
-      const isActive = drop.classList.contains("active");
-      document.querySelectorAll(".dropdown").forEach(d => d.classList.remove("active"));
-      if (!isActive) {
-        drop.classList.add("active");
-      }
-    });
+// ============================================================
+// BOOT
+// ============================================================
 
-    drop.querySelectorAll(".dropdown-list div").forEach(option => {
-      option.addEventListener("click", () => {
-        btn.querySelector("span").classList.remove("placeholder");
-        btn.querySelector("span").innerText = option.innerText;
-        drop.classList.remove("active");
-      });
-    });
-  });
-
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".dropdown")) {
-      document.querySelectorAll(".dropdown").forEach(d => d.classList.remove("active"));
-    }
-  });
-
-  const searchBtn = document.querySelector(".search-container .btn-primary");
-  if (searchBtn) {
-    searchBtn.addEventListener("click", async () => {
-      const searchInput = document.querySelector(".input-box input");
-      const categoryText = document.querySelector(
-        "#categoryDropdown .dropdown-btn span",
-      );
-      const radiusText = document.querySelector(
-        "#radiusDropdown .dropdown-btn span",
-      );
-      const searchValue = searchInput?.value?.trim();
-      const categoryValue = categoryText?.innerText?.includes("Select")
-        ? null
-        : categoryText.innerText;
-      const radiusValue = radiusText?.innerText?.includes("Radius")
-        ? null
-        : radiusText.innerText;
-      const params = {};
-      if (searchValue) params.search = searchValue;
-      if (categoryValue) params.category = categoryValue;
-      // ✅ If radius selected → get current location
-      if (radiusValue) {
-        try {
-          const position = await getCurrentLocation();
-          params.lat = position.lat;
-          params.lng = position.lng;
-          params.radius = radiusValue.replace(" ", ""); // 5 km → 5km
-          console.log("📍 Current Location:", position);
-        } catch (err) {
-          console.error("Location error:", err);
-          alert(
-            "Unable to fetch current location. Please allow location access.",
-          );
-          return;
-        }
-      }
-      console.log("Search Params:", params);
-      await loadRetailers(params);
-    });
-  }
-
-  await loadRetailers();
-  await loadFilterSettings();
-  setupDropdowns();   // 👈 extract your dropdown logic (see below)
-  loadCategories();
+document.addEventListener('DOMContentLoaded', async () => {
+  renderRadiusDropdown();
+  initDropdowns();
   setupLocationSearch();
-  // Load stores then initialize map
   initCurrentLocationButton();
-  initApp();
 
-  const locationList = document.getElementById("locationDropdownList");
-  if (locationList) {
-    locationList.addEventListener("click", (e) => {
-      e.stopPropagation(); // prevent dropdown from closing
-    });
-  }
-
+  // Load data and map in parallel where possible
+  await Promise.all([loadRetailers(), loadFilterSettings(), loadCategories()]);
+  await initGoogleMap();
 });
 
+let mapsBootstrapped = false;
 
+async function bootstrapGoogleMaps() {
+  if (window.google && window.google.maps) return;
 
-async function initApp() {
-  console.log("Map provider detected:", App.mapProvider);
+  return new Promise((resolve, reject) => {
+    const existingScript = document.getElementById("googleMapsScript");
 
-  //await loadRetailers();  // ✅ wait for data first
-
-  switch (App.mapProvider) {
-    case MAP_PROVIDERS.GOOGLE:
-      await loadGoogleMapsAndInitMap();
-      break;
-    default:
-      await loadLeafletAndInitMap();
-      break;
-  }
-}
-
-/***** START current user location code  */
-async function reverseGeocode(lat, lng) {
-  if (App.mapProvider === MAP_PROVIDERS.GOOGLE && typeof google !== 'undefined') {
-    return await reverseGeocodeGoogle(lat, lng);
-  } else {
-    return await reverseGeocodeLeaflet(lat, lng);
-  }
-}
-
-async function reverseGeocodeGoogle(lat, lng) {
-  try {
-    const geocoder = new google.maps.Geocoder();
-    return await new Promise((resolve, reject) => {
-      geocoder.geocode(
-        { location: { lat, lng } },
-        (results, status) => {
-          if (status === 'OK' && results[0]) {
-            // Try to extract city/locality from address components
-            const components = results[0].address_components;
-            const city =
-              getAddressComponent(components, 'locality') ||
-              getAddressComponent(components, 'administrative_area_level_2') ||
-              getAddressComponent(components, 'administrative_area_level_1');
-            resolve(city || results[0].formatted_address);
-          } else {
-            reject(new Error(`Geocoding failed: ${status}`));
-          }
-        }
-      );
-    });
-  } catch (error) {
-    console.error('Google reverse geocoding failed:', error);
-    return null;
-  }
-}
-
-function getAddressComponent(components, type) {
-  const match = components.find(c => c.types.includes(type));
-  return match ? match.long_name : null;
-}
-
-/**
- * Reverse Geocoding (Used for Leaflet)
- */
-async function reverseGeocodeLeaflet(lat, lng) {
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-      {
-        headers: {
-          'Accept-Language': 'en',
-          'User-Agent': 'AuthorizedLocator/1.0'
-        }
-      }
-    );
-    if (!response.ok) throw new Error('Geocode Leaflet request failed');
-    const data = await response.json();
-    const addr = data.address;
-    console.log('Nominatim reverse geocode result:', addr);
-    // Return most specific available location name
-    return (
-      addr.state_district + ", " + addr.state
-    );
-  } catch (error) {
-    console.error('Nominatim reverse geocoding failed:', error);
-    return null;
-  }
-}
-
-function updateLocationInput(placeName) {
-  const locationInput = document.querySelector('.input-box.dropdown .dropdown-btn');
-  if (!locationInput) return;
-  if (placeName) {
-    locationInput.value = placeName;
-    locationInput.placeholder = placeName;
-  }
-}
-
-
-function clearLocationInput() {
-  const locationInput = document.querySelector('.input-box.dropdown .dropdown-btn');
-  if (!locationInput) return;
-  locationInput.value = '';
-  locationInput.placeholder = 'Search City, Postal Code, Address'; // your default placeholder
-}
-/** End Current user address from lat and long ****/
-
-/**
- * Show loader with optional custom message
- */
-function showLocationLoader(message = 'Detecting location...') {
-  const loader = document.getElementById('location-loader');
-  const inputBox = document.querySelector('.input-box.dropdown');
-  const loaderText = document.querySelector('#location-loader .loader-text');
-
-  if (loader) {
-    if (loaderText) loaderText.textContent = message;
-    loader.classList.add('active');
-  }
-  if (inputBox) inputBox.classList.add('loading');
-}
-
-/**
- * Hide loader and restore input
- */
-function hideLocationLoader() {
-  const loader = document.getElementById('location-loader');
-  const inputBox = document.querySelector('.input-box.dropdown');
-
-  if (loader) loader.classList.remove('active');
-  if (inputBox) inputBox.classList.remove('loading');
-}
-
-/**
- * Update loader message dynamically
- */
-function updateLoaderMessage(message) {
-  const loaderText = document.querySelector('#location-loader .loader-text');
-  if (loaderText) loaderText.textContent = message;
-}
-
-async function initCurrentLocationButton() {
-  const currentLocationBtn = document.getElementById('current-location-btn');
-  const resetLocationBtn = document.getElementById('reset-location-btn');
-  const inputField = document.querySelector('input[type="text"].dropdown-btn');
-
-  if (currentLocationBtn && resetLocationBtn) {
-    console.log("current-location-btn element found");
-    console.log("reset-location-btn element found");
-    currentLocationBtn.addEventListener('click', loadNearbyStores);
-    resetLocationBtn.addEventListener('click', resetiInitApp);
-  } else {
-    console.log('Button elements not found');
-  }
-
-  // Add backspace key listener to reset location (only if location is set)
-  if (inputField) {
-    inputField.addEventListener('keydown', (event) => {
-      if ((event.key === 'Backspace' || event.keyCode === 8) &&
-        UserLocation.latitude !== null && UserLocation.longitude !== null) {
-        event.preventDefault(); // Prevent default backspace behavior
-        resetiInitApp();
-      }
-    });
-  }
-}
-
-async function resetiInitApp() {
-  try {
-    console.log("Resetting to initial store list and map view...");
-    const currentLocationBtn = document.getElementById('current-location-btn');
-    const resetLocationBtn = document.getElementById('reset-location-btn');
-
-    // Clear all markers from map
-    if (App.markers.length > 0) {
-      App.markers.forEach(m => {
-        if (m.marker) {
-          if (m.marker.remove) {
-            m.marker.remove(); // Leaflet
-          } else if (m.marker.setMap) {
-            m.marker.setMap(null); // Google Maps
-          }
-        }
-      });
-      App.markers = [];
-    }
-
-    // Reset user location
-    UserLocation.latitude = null;
-    UserLocation.longitude = null;
-    UserLocation.accuracy = null;
-
-    clearLocationInput();
-
-    // Update button visibility
-    if (currentLocationBtn && resetLocationBtn) {
-      currentLocationBtn.style.display = 'block';
-      resetLocationBtn.style.display = 'none';
-    }
-
-    // Reload all retailers
-    await loadRetailers();
-    updateRetailerCount(App.stores.length);
-
-    // Reinitialize map with all retailers
-    if (App.mapProvider === MAP_PROVIDERS.GOOGLE) {
-      await reinitializeGoogleMap();
-    } else {
-      await reinitializeLeafletMap();
-    }
-
-    console.log("Reset complete. Showing all retailers:", App.stores.length);
-  } catch (error) {
-    console.error('Error resetting to initial view:', error);
-  }
-}
-
-/**
- * Load and display nearby stores based on user's current location
- */
-async function loadNearbyStores() {
-  try {
-    console.log("loadNearbyStores");
-    const currentLocationBtn = document.getElementById('current-location-btn');
-    const resetLocationBtn = document.getElementById('reset-location-btn');
-
-    if (currentLocationBtn && resetLocationBtn) {
-      currentLocationBtn.style.display = 'none';
-      // resetLocationBtn.style.display = 'block';
-    }
-
-    // ✅ Step 1: Show loader - detecting GPS
-    showLocationLoader('Detecting location...');
-
-    // Get user's current location
-    await getCurrentUserLocation();
-
-    // ✅ Step 2: Update message - fetching address
-    updateLoaderMessage('Fetching address...');
-
-    // ✅ Reverse geocode and update input
-    const placeName = await reverseGeocode(UserLocation.latitude, UserLocation.longitude);
-    updateLocationInput(placeName);
-
-    // ✅ Step 3: Update message - finding stores
-    updateLoaderMessage('Finding nearby stores...');
-
-    // Filter stores by proximity
-    const nearbyStores = filterNearbyStores(App.stores, NEARBY_STORES_RADIUS_KM);
-    console.log("Nearby stores:", nearbyStores);
-
-    // ✅ Hide loader before any alert or render
-    hideLocationLoader();
-
-    if (nearbyStores.length === 0) {
-      alert(`No stores found within ${NEARBY_STORES_RADIUS_KM}km of your location.`);
-      if (currentLocationBtn) {
-        currentLocationBtn.style.display = 'block';
-        resetLocationBtn.style.display = 'none';
-      }
-      clearLocationInput();
+    if (existingScript) {
+      existingScript.onload = resolve;
       return;
     }
 
-    // Update app state with nearby stores
-    const previousStores = App.stores;
-    App.stores = nearbyStores;
+    const script = document.createElement("script");
 
-    // Clear existing markers
-    if (App.map && App.markers.length > 0) {
-      App.markers.forEach(m => {
-        if (m.marker) {
-          m.marker.remove ? m.marker.remove() : m.marker.setMap(null);
-        }
-      });
-      App.markers = [];
-    }
+    script.id = "googleMapsScript";
 
-    // Re-render with nearby stores
-    renderRetailers(nearbyStores);
-    updateRetailerCount(nearbyStores.length);
+    script.src =
+      `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,marker&v=weekly`;
 
-    // Reinitialize map with nearby stores
-    if (App.map) {
-      if (App.mapProvider === MAP_PROVIDERS.GOOGLE) {
-        await reinitializeGoogleMap();
-      } else {
-        await reinitializeLeafletMap();
-      }
-    }
+    script.async = true;
+    script.defer = true;
 
-    console.log(`Found ${nearbyStores.length} nearby stores`);
+    script.onload = resolve;
 
-  } catch (error) {
-    console.error('Error loading nearby stores:', error);
+    script.onerror = () => reject("Google Maps failed to load");
 
-    hideLocationLoader();
-
-    alert('Unable to get your location. Please enable location services and try again.');
-
-    const currentLocationBtn = document.getElementById('current-location-btn');
-    if (currentLocationBtn) {
-      currentLocationBtn.disabled = false;
-      currentLocationBtn.innerText = 'Current Location';
-    }
-    clearLocationInput();
-  }
-}
-
-/**
- * Get user's current location using browser Geolocation API
- */
-function getCurrentUserLocation() {
-  console.log("getCurrentUserLocation");
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('Geolocation is not supported by this browser.'));
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        UserLocation.latitude = position.coords.latitude;
-        UserLocation.longitude = position.coords.longitude;
-        UserLocation.accuracy = position.coords.accuracy;
-        console.log('User location:', {
-          lat: UserLocation.latitude,
-          lng: UserLocation.longitude,
-          accuracy: UserLocation.accuracy
-        });
-        resolve(UserLocation);
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        reject(error);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
+    document.head.appendChild(script);
   });
 }
 
-function filterNearbyStores(stores, radiusKm = NEARBY_STORES_RADIUS_KM) {
-  console.log("filterNearbyStores with radiusKm:", radiusKm);
-  if (!UserLocation.latitude || !UserLocation.longitude) {
-    console.warn('User location not available');
-    return [];
-  }
-
-  const nearbyStores = stores
-    .map(store => {
-      const distance = calculateDistance(
-        UserLocation.latitude,
-        UserLocation.longitude,
-        parseFloat(store.latitude),
-        parseFloat(store.longitude)
-      );
-      return {
-        ...store,
-        distance: parseFloat(distance.toFixed(2))
-      };
-    })
-    .filter(store => store.distance <= radiusKm)
-    .sort((a, b) => a.distance - b.distance);
-
-  return nearbyStores;
-}
-
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) *
-    Math.cos(lat2 * (Math.PI / 180)) *
-    Math.sin(dLon / 2) *
-    Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c;
-  return distance;
-}
-
-/**
- * Reinitialize Google map with current markers
- */
-async function reinitializeGoogleMap() {
-  if (!google || !App.map) return;
-
-  // Clear existing markers from map
-  App.markers.forEach(m => {
-    if (m.marker && m.marker.setMap) {
-      m.marker.setMap(null);
-    }
-  });
-  App.markers = [];
-
-  const validStores = App.stores.filter(s => s.latitude && s.longitude);
-  const bounds = new google.maps.LatLngBounds();
-
-  validStores.forEach(store => {
-    const lat = parseFloat(store.latitude);
-    const lng = parseFloat(store.longitude);
-    const position = { lat, lng };
-
-    bounds.extend(position);
-
-    const address = [
-      store.address_line1,
-      store.address_line2,
-      store.city,
-      store.state,
-      store.postal_code
-    ].filter(Boolean).join(', ');
-
-    const distance = store.distance ? `<p style="margin:4px 0;"><strong>Distance:</strong> ${store.distance} km</p>` : '';
-
-    const infoWindowContent = `
-      <div style="min-width:250px; font-family:Arial,sans-serif; font-size:13px; padding: 8px;">
-        <h3 style="margin:0 0 8px;color:#0066cc;">${store.name}</h3>
-        <p style="margin:4px 0;"><strong>Address:</strong> ${address}</p>
-        ${distance}
-        ${store.phone ? `<p style="margin:4px 0;"><strong>Phone:</strong> <a href="tel:${store.phone}">${store.phone}</a></p>` : ''}
-        ${store.email ? `<p style="margin:4px 0;"><strong>Email:</strong> <a href="mailto:${store.email}">${store.email}</a></p>` : ''}
-        ${store.opening_hours ? `<p style="margin:4px 0;"><strong>Hours:</strong> ${store.opening_hours}</p>` : ''}
-        <p style="margin:4px 0;"><strong>Status:</strong> <span style="color:${store.status === 'active' ? 'green' : 'red'}">${store.status.toUpperCase()}</span></p>
-        ${store.website_url ? `<p style="margin:4px 0;"><a href="${store.website_url}" target="_blank" style="color:#0066cc;">Visit Website ↗</a></p>` : ''}
-      </div>
-    `;
-
-    const infoWindow = new google.maps.InfoWindow({
-      content: infoWindowContent
-    });
-
-    const marker = new google.maps.Marker({
-      position: position,
-      map: App.map,
-      title: store.name,
-      icon: 'https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Mock_Map_Markers.svg'
-    });
-
-    marker.addListener('click', () => {
-      App.markers.forEach(m => {
-        if (m.infoWindow) {
-          m.infoWindow.close();
-        }
-      });
-      infoWindow.open(App.map, marker);
-    });
-
-    App.markers.push({
-      marker,
-      storeId: store.id,
-      infoWindow
-    });
-  });
-
-  App.map.fitBounds(bounds);
-
-  // Add user location marker if available
-  if (UserLocation.latitude && UserLocation.longitude) {
-    new google.maps.Marker({
-      position: { lat: UserLocation.latitude, lng: UserLocation.longitude },
-      map: App.map,
-      title: 'Your Location',
-      icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-    });
-  }
-}
-
-/**
- * Reinitialize Leaflet map with current markers
- */
-async function reinitializeLeafletMap() {
-  if (!L || !App.map) return;
-
-  // Clear existing markers from map
-  App.markers.forEach(m => {
-    if (m.marker && m.marker.remove) {
-      m.marker.remove();
-    }
-  });
-  App.markers = [];
-
-  const validStores = App.stores.filter(s => s.latitude && s.longitude);
-
-  // Add markers
-  validStores.forEach(store => {
-    const lat = parseFloat(store.latitude);
-    const lng = parseFloat(store.longitude);
-
-    const customIcon = L.icon({
-      iconUrl: 'https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Mock_Map_Markers.svg',
-      iconSize: [38, 45],
-      iconAnchor: [19, 45],
-      popupAnchor: [0, -45],
-    });
-
-    const marker = L.marker([lat, lng], {
-      icon: customIcon,
-      title: store.name
-    }).addTo(App.map);
-
-    const address = [
-      store.address_line1,
-      store.address_line2,
-      store.city,
-      store.state,
-      store.postal_code
-    ].filter(Boolean).join(', ');
-
-    const distance = store.distance ? `<p style="margin:4px 0;"><strong>Distance:</strong> ${store.distance} km</p>` : '';
-
-    marker.bindPopup(`
-      <div style="min-width:220px; font-family:Arial,sans-serif; font-size:13px;">
-        <h3 style="margin:0 0 8px;color:#0066cc;">${store.name}</h3>
-        <p style="margin:4px 0;"><strong>Address:</strong> ${address}</p>
-        ${distance}
-        ${store.phone ? `<p style="margin:4px 0;"><strong>Phone:</strong> <a href="tel:${store.phone}">${store.phone}</a></p>` : ''}
-        ${store.email ? `<p style="margin:4px 0;"><strong>Email:</strong> <a href="mailto:${store.email}">${store.email}</a></p>` : ''}
-        ${store.opening_hours ? `<p style="margin:4px 0;"><strong>Hours:</strong> ${store.opening_hours}</p>` : ''}
-        <p style="margin:4px 0;"><strong>Status:</strong> <span style="color:${store.status === 'active' ? 'green' : 'red'}">${store.status.toUpperCase()}</span></p>
-        ${store.website_url ? `<a href="${store.website_url}" target="_blank" style="color:#0066cc;">Visit Website ↗</a>` : ''}
-      </div>
-    `);
-
-    App.markers.push({ marker, storeId: store.id });
-  });
-
-  // Fit map bounds
-  if (App.markers.length > 0) {
-    const group = L.featureGroup(App.markers.map(m => m.marker));
-    App.map.fitBounds(group.getBounds(), { padding: [50, 50] });
-  }
-}
-
-/***** end current user location code  */
-
-
-function getCurrentLocation() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject("Geolocation not supported");
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-      },
-      (error) => {
-        reject(error.message);
-      },
-    );
-  });
-}
-
-async function loadRetailers(params = {}) {
-  try {
-    const baseUrl = window.RETAILER_API_URL || "";
-    const query = new URLSearchParams();
-
-    if (params.search) query.append("search", params.search);
-    if (params.category) query.append("category", params.category);
-    if (params.radius) query.append("radius", params.radius);
-    if (params.lat) query.append("lat", params.lat);
-    if (params.lng) query.append("lng", params.lng);
-
-    const url = `${baseUrl}/retailers?${query.toString()}`;
-    console.log("API URL:", url);
-
-    const response = await fetch(url);
-    const result = await response.json();
-
-    if (result.success) {
-      const data = result.data || []; // ✅ FIX
-
-      App.stores = data.filter(store =>
-        store.latitude && store.longitude
-      );
-
-      renderRetailers(data);
-
-      updateRetailerCount(data.length); // ✅ FIX (count)
-
-      updateDealerHeader({
-        search: params.search || null,
-        count: data.length, // ✅ FIX
-        radius: params.radius || null,
-      }); // ✅ FIX (closing bracket)
-    } else {
-      renderRetailers([]);
-
-      updateDealerHeader({
-        search: params.search || null,
-        count: 0,
-        radius: params.radius || null,
-      });
-    }
-
-  } catch (error) {
-    console.error("Error:", error);
-
-    renderRetailers([]);
-
-    updateDealerHeader({
-      search: params.search || null,
-      count: 0,
-      radius: params.radius || null,
-    });
-  }
-}
-
-async function loadLeafletAndInitMap() {
-  console.log("Initializing Leaflet Map with stores:", App.stores);
+async function initGoogleMap() {
   const mapContainer = document.getElementById('map-container');
   if (!mapContainer) return;
 
   if (App.stores.length === 0) {
-    mapContainer.innerHTML = '<p style="padding: 20px;">No store locations available</p>';
+    mapContainer.innerHTML = '<p style="padding:20px;color:#555">No store locations available.</p>';
     return;
   }
 
-  // Load Leaflet CSS
-  const leafletLink = document.createElement('link');
-  leafletLink.rel = 'stylesheet';
-  leafletLink.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-  document.head.appendChild(leafletLink);
+  await bootstrapGoogleMaps();
 
-  // Load Leaflet JS and wait for it
-  await new Promise((resolve, reject) => {
-    const leafletScript = document.createElement('script');
-    leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    leafletScript.onload = resolve;
-    leafletScript.onerror = reject;
-    document.head.appendChild(leafletScript);
-  });
+  const { Map, InfoWindow, LatLngBounds } = await google.maps.importLibrary('maps');
 
-  // Calculate center
-  const validStores = App.stores.filter(s => s.latitude && s.longitude);
-  //const avgLat = validStores.reduce((sum, s) => sum + parseFloat(s.latitude), 0) / validStores.length;
-  //const avgLng = validStores.reduce((sum, s) => sum + parseFloat(s.longitude), 0) / validStores.length;
+  sharedInfoWindow = new InfoWindow();
 
-  // ✅ Initialize map
-  //App.map = L.map(mapContainer).setView([avgLat, avgLng], 5);
-  console.log("validStores ", validStores);
-  App.map = L.map(mapContainer);
-
-  // ✅ Tile layer enabled (this was commented out before!)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 19,
-  }).addTo(App.map);
-
-  // Add markers
-  App.stores.forEach(store => {
-    const lat = parseFloat(store.latitude);
-    const lng = parseFloat(store.longitude);
-
-    /*const marker = L.marker([lat, lng], {
-      title: store.name,
-      alt: store.name
-    }).addTo(App.map);*/
-
-    // ✅ After (custom icon)
-    const customIcon = L.icon({
-      iconUrl: 'https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Mock_Map_Markers.svg',
-      iconSize: [38, 45],
-      iconAnchor: [19, 45],
-      popupAnchor: [0, -45],
-    });
-
-    const marker = L.marker([lat, lng], {
-      icon: customIcon,
-      title: store.name
-    }).addTo(App.map);
-
-
-    const address = [
-      store.address_line1,
-      store.address_line2,
-      store.city,
-      store.state,
-      store.postal_code
-    ].filter(Boolean).join(', ');
-
-    marker.bindPopup(`
-      <div style="min-width:220px; font-family:Arial,sans-serif; font-size:13px;">
-        <h3 style="margin:0 0 8px;color:#0066cc;">${store.name}</h3>
-        <p style="margin:4px 0;"><strong>Address:</strong> ${address}</p>
-        ${store.phone ? `<p style="margin:4px 0;"><strong>Phone:</strong> <a href="tel:${store.phone}">${store.phone}</a></p>` : ''}
-        ${store.website_url ? `<a href="${store.website_url}" target="_blank" style="color:#0066cc;">Visit Website ↗</a>` : ''}
-      </div>
-    `);
-
-    App.markers.push({ marker, storeId: store.id });
-
-  });
-  console.log("Markers added to map:", App.markers.length);
-  // Auto-fit map to show all markers
-  if (App.markers.length > 0) {
-    const group = L.featureGroup(App.markers.map(m => m.marker));
-    App.map.fitBounds(group.getBounds(), { padding: [50, 50] });
-  }
-}
-
-async function loadGoogleMapsAndInitMap() {
-  console.log("Initializing Google Map with stores:", App.stores);
-  const mapContainer = document.getElementById('map-container');
-  if (!mapContainer) return;
-
-  if (App.stores.length === 0) {
-    mapContainer.innerHTML = '<p style="padding: 20px;">No store locations available</p>';
+  const valid = App.stores.filter(s => s.latitude && s.longitude);
+  if (!valid.length) {
+    mapContainer.innerHTML = '<p style="padding:20px;color:#555">No stores have coordinates.</p>';
     return;
   }
 
-  // Load Google Maps API and wait for it
-  await new Promise((resolve, reject) => {
-    const googleMapsScript = document.createElement('script');
-
-    googleMapsScript.src = 'https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY';
-    googleMapsScript.async = true;
-    googleMapsScript.defer = true;
-    googleMapsScript.onload = resolve;
-    googleMapsScript.onerror = reject;
-    document.head.appendChild(googleMapsScript);
-  });
-
-  // Calculate center from all store locations
-  const validStores = App.stores.filter(s => s.latitude && s.longitude);
-  const avgLat = validStores.reduce((sum, s) => sum + parseFloat(s.latitude), 0) / validStores.length;
-  const avgLng = validStores.reduce((sum, s) => sum + parseFloat(s.longitude), 0) / validStores.length;
-
-  // Initialize Google Map
-  App.map = new google.maps.Map(mapContainer, {
-    zoom: 5,
+  const avgLat = valid.reduce((sum, s) => sum + parseFloat(s.latitude), 0) / valid.length;
+  const avgLng = valid.reduce((sum, s) => sum + parseFloat(s.longitude), 0) / valid.length;
+  App.map = new Map(mapContainer, {
+    zoom: 4,
     center: { lat: avgLat, lng: avgLng },
+    mapId: GOOGLE_MAP_ID,
     mapTypeControl: true,
     fullscreenControl: true,
     zoomControl: true,
     streetViewControl: true,
   });
 
-  // Create bounds to fit all markers
-  const bounds = new google.maps.LatLngBounds();
+  await placeStoreMarkers(App.stores);
+  fitBoundsToMarkers();
+}
 
-  // Add markers for each store
-  App.stores.forEach(store => {
-    const lat = parseFloat(store.latitude);
-    const lng = parseFloat(store.longitude);
-    const position = { lat, lng };
+async function placeStoreMarkers(stores) {
+  if (!App.map) return;
 
-    // Extend bounds to include this marker
-    bounds.extend(position);
+  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
 
-    const address = [
-      store.address_line1,
-      store.address_line2,
-      store.city,
-      store.state,
-      store.postal_code
-    ].filter(Boolean).join(', ');
+  stores
+    .filter(s => s.latitude && s.longitude)
+    .forEach(store => {
+      const position = {
+        lat: parseFloat(store.latitude),
+        lng: parseFloat(store.longitude),
+      };
 
-    // Create InfoWindow content
-    const infoWindowContent = `
-      <div style="min-width:250px; font-family:Arial,sans-serif; font-size:13px; padding: 8px;">
-        <h3 style="margin:0 0 8px;color:#0066cc;">${store.name}</h3>
-        <p style="margin:4px 0;"><strong>Address:</strong> ${address}</p>
-        ${store.phone ? `<p style="margin:4px 0;"><strong>Phone:</strong> <a href="tel:${store.phone}">${store.phone}</a></p>` : ''}
-        ${store.email ? `<p style="margin:4px 0;"><strong>Email:</strong> <a href="mailto:${store.email}">${store.email}</a></p>` : ''}
-        ${store.opening_hours ? `<p style="margin:4px 0;"><strong>Hours:</strong> ${store.opening_hours}</p>` : ''}
-        <p style="margin:4px 0;"><strong>Status:</strong> <span style="color:${store.status === 'active' ? 'green' : 'red'}">${store.status.toUpperCase()}</span></p>
-        ${store.website_url ? `<p style="margin:4px 0;"><a href="${store.website_url}" target="_blank" style="color:#0066cc;">Visit Website ↗</a></p>` : ''}
-      </div>
-    `;
+      // Custom SVG pin image
+      const pinImg = document.createElement('img');
+      pinImg.src = 'https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Mock_Map_Markers.svg';
+      pinImg.title = store.name;
+      pinImg.style.cssText = 'width:38px;height:45px;cursor:pointer;display:block';
 
-    // Create InfoWindow
-    const infoWindow = new google.maps.InfoWindow({
-      content: infoWindowContent
+      const marker = new AdvancedMarkerElement({
+        map: App.map,
+        position,
+        title: store.name, 
+        content: pinImg,
+      });
+
+      marker.addListener('click', () => {
+        sharedInfoWindow.setContent(buildPopupHTML(store));
+        sharedInfoWindow.open({ map: App.map, anchor: marker });
+      });
+
+      App.markers.push({ marker, storeId: store.id, position });
     });
+}
 
-    // Create marker with custom icon
-    const marker = new google.maps.Marker({
-      position: position,
-      map: App.map,
-      title: store.name,
-      icon: 'https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Mock_Map_Markers.svg'
-    });
+async function placeUserLocationMarker() {
+  if (!App.map || !UserLocation.latitude) return;
 
-    // Add click listener to open InfoWindow
-    marker.addListener('click', () => {
-      // Close all other InfoWindows
-      App.markers.forEach(m => {
-        if (m.infoWindow) {
-          m.infoWindow.close();
+  const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary('marker');
+
+  const pin = new PinElement({
+    background: '#4285F4',
+    borderColor: '#1a73e8',
+    glyphColor: '#ffffff',
+    scale: 1.2,
+  });
+
+  new AdvancedMarkerElement({
+    map: App.map,
+    position: { lat: UserLocation.latitude, lng: UserLocation.longitude },
+    title: 'Your Location',
+    content: pin.element,
+  });
+}
+
+function fitBoundsToMarkers() {
+  if (!App.map || !App.markers.length) return;
+  const { LatLngBounds } = google.maps;
+  const bounds = new LatLngBounds();
+  App.markers.forEach(m => bounds.extend(m.position));
+  App.map.fitBounds(bounds, /* padding= */ 60);
+}
+
+// Remove all current markers from the map
+function clearMarkers() {
+  sharedInfoWindow?.close();
+  App.markers.forEach(({ marker }) => {
+    marker.map = null; // AdvancedMarkerElement: set .map = null to detach
+  });
+  App.markers = [];
+}
+
+// Full map refresh: clear + re-add store markers (+ optional user dot)
+async function reinitializeMap({ showUserLocation = false } = {}) {
+  if (!App.map) return;
+  clearMarkers();
+  await placeStoreMarkers(App.stores);
+  if (showUserLocation) await placeUserLocationMarker();
+  fitBoundsToMarkers();
+}
+
+// ============================================================
+// INFO WINDOW HTML
+// ============================================================
+
+function buildPopupHTML(store) {
+  const address = [
+    store.address_line1, store.address_line2,
+    store.city, store.state, store.postal_code,
+  ].filter(Boolean).join(', ');
+
+  const distanceHTML = store.distance
+    ? `<p style="margin:4px 0"><strong>Distance:</strong> ${formatDistance(store.distance)}</p>`
+    : '';
+
+  return `
+    <div style="min-width:220px;max-width:280px;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;padding:4px 2px">
+      <h3 style="margin:0 0 8px;color:#1a73e8;font-size:15px">${store.name}</h3>
+      <p style="margin:4px 0"><strong>Address:</strong> ${address || 'N/A'}</p>
+      ${distanceHTML}
+      ${store.phone
+      ? `<p style="margin:4px 0"><strong>Phone:</strong> <a href="tel:${store.phone}" style="color:#1a73e8">${store.phone}</a></p>`
+      : ''}
+      ${store.email
+      ? `<p style="margin:4px 0"><strong>Email:</strong> <a href="mailto:${store.email}" style="color:#1a73e8">${store.email}</a></p>`
+      : ''}
+      ${store.opening_hours
+      ? `<p style="margin:4px 0"><strong>Hours:</strong> ${store.opening_hours}</p>`
+      : ''}
+      <p style="margin:4px 0"><strong>Status:</strong>
+        <span style="color:${store.status === 'active' ? '#188038' : '#d93025'};font-weight:600">
+          ${store.status.toUpperCase()}
+        </span>
+      </p>
+      ${store.website_url
+      ? `<p style="margin:6px 0 0"><a href="${store.website_url}" target="_blank" rel="noopener" style="color:#1a73e8">Visit Website ↗</a></p>`
+      : ''}
+    </div>`;
+}
+
+// ============================================================
+// DISTANCE HELPERS
+// ============================================================
+
+function formatDistance(distanceKm) {
+  if (getDistanceUnit() === 'miles') {
+    return (distanceKm * 0.621371).toFixed(2) + ' miles';
+  }
+  return distanceKm.toFixed(2) + ' km';
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * (Math.PI / 180)) *
+    Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ============================================================
+// RADIUS DROPDOWN
+// ============================================================
+
+function renderRadiusDropdown() {
+  const dropdown = document.querySelector('#radiusDropdown .dropdown-list');
+  if (!dropdown) return;
+  const unit = getDistanceUnit();
+  dropdown.innerHTML = [5, 10, 15, 20, 25]
+    .map(v => `<div>${v} ${unit}</div>`)
+    .join('');
+}
+
+// ============================================================
+// GEOLOCATION
+// ============================================================
+
+function getCurrentLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        UserLocation.latitude = coords.latitude;
+        UserLocation.longitude = coords.longitude;
+        UserLocation.accuracy = coords.accuracy;
+        resolve(UserLocation);
+      },
+      reject,
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+  });
+}
+
+// ============================================================
+// REVERSE GEOCODING
+// ============================================================
+
+async function reverseGeocode(lat, lng) {
+  try {
+    await bootstrapGoogleMaps();
+    const { Geocoder } = await google.maps.importLibrary('geocoding');
+    const geocoder = new Geocoder();
+    return await new Promise((resolve, reject) => {
+      geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          const c = results[0].address_components;
+          const city =
+            getComponent(c, 'locality') ||
+            getComponent(c, 'administrative_area_level_2') ||
+            getComponent(c, 'administrative_area_level_1');
+          resolve(city || results[0].formatted_address);
+        } else {
+          reject(new Error(`Geocoding failed: ${status}`));
         }
       });
-      infoWindow.open(App.map, marker);
     });
-
-    App.markers.push({
-      marker,
-      storeId: store.id,
-      infoWindow
-    });
-  });
-
-  // Fit map to show all markers
-  if (App.markers.length > 0) {
-    App.map.fitBounds(bounds);
-  }
-}
-/* ===========================
-   NEW CONTENT ADDED BELOW
-=========================== */
-
-function renderRetailers(data) {
-  const container = document.getElementById("retailers-list");
-
-  if (!container) return;
-
-  container.innerHTML = "";
-
-  data.forEach((item) => {
-    const address = [
-      item.address_line1,
-      item.address_line2,
-      item.city,
-      item.state,
-      item.postal_code,
-    ]
-      .filter(Boolean)
-      .join(", ");
-
-    container.innerHTML += `
-        <div class="custom-location-card">
-          <div class="content-block">
-   
-            <div class="title-block">
-              <h4>${item.name || ""}</h4>
-              <span>${item.country || ""}</span>
-            </div>
-   
-            <ul class="icon-list">
-   
-              <li>
-                <em>
-                  <img src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Location.svg?v=1777545764" alt="Location Icon">
-                </em>
-                <span>${address || "Address not available"}</span>
-              </li>
-   
-              ${item.phone
-        ? `
-                <li>
-                  <em>
-                    <img src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Call.svg?v=1777545764" alt="Phone Icon">
-                  </em>
-                  <a href="tel:${item.phone}">${item.phone}</a>
-                </li>
-              `
-        : ""
-      }
-   
-              ${item.website_url
-        ? `
-                <li>
-                  <em>
-                    <img src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Website.svg?v=1777545764" alt="Web Icon">
-                  </em>
-                  <a href="${item.website_url}" target="_blank">
-                    ${cleanUrl(item.website_url)}
-                  </a>
-                </li>
-              `
-        : ""
-      }
-   
-            </ul>
-          </div>
-   
-          <div class="btn-wrap">
-   
-            ${item.website_url
-        ? `
-              <a href="${item.website_url}"
-                 class="btn secondary-btn"
-                 target="_blank">
-                 Visit website
-              </a>
-            `
-        : ""
-      }
-   
-            ${item.google_maps_link
-        ? `
-              <a href="${item.google_maps_link}"
-                 class="btn btn-primary"
-                 target="_blank">
-                 Get Direction
-              </a>
-            `
-        : ""
-      }
-   
-          </div>
-        </div>
-      `;
-  });
-}
-
-function updateRetailerCount(count) {
-  const el = document.getElementById("dealer-count");
-
-  if (el) {
-    el.innerText = `Showing ${count} authorized location${count !== 1 ? "s" : ""
-      }`;
+  } catch (e) {
+    console.error('Reverse geocoding error:', e);
+    return null;
   }
 }
 
-function cleanUrl(url) {
-  return url.replace("https://", "").replace("http://", "").replace("/", "");
+function getComponent(components, type) {
+  return components.find(c => c.types.includes(type))?.long_name || null;
+}
+
+// ============================================================
+// LOCATION INPUT HELPERS
+// ============================================================
+
+function updateLocationInput(value) {
+  const input = document.querySelector('input[name="location-address"]');
+  if (input && value) input.value = value;
+}
+
+function clearLocationInput() {
+  const input = document.querySelector('input[name="location-address"]');
+  if (input) input.value = '';
+}
+
+// ============================================================
+// LOADER
+// ============================================================
+
+function showLocationLoader(message = 'Detecting location...') {
+  const loader = document.getElementById('location-loader');
+  const inputBox = document.querySelector('.input-box.dropdown');
+  const text = loader?.querySelector('.loader-text');
+  if (text) text.textContent = message;
+  if (loader) loader.classList.add('active');
+  if (inputBox) inputBox.classList.add('loading');
+}
+
+function hideLocationLoader() {
+  document.getElementById('location-loader')?.classList.remove('active');
+  document.querySelector('.input-box.dropdown')?.classList.remove('loading');
+}
+
+function updateLoaderMessage(message) {
+  const el = document.querySelector('#location-loader .loader-text');
+  if (el) el.textContent = message;
+}
+
+// ============================================================
+// NEARBY STORES
+// ============================================================
+
+let isFetchingNearby = false;
+
+function initCurrentLocationButton() {
+  document.getElementById('current-location-btn')
+    ?.addEventListener('click', loadNearbyStores);
+  document.getElementById('reset-location-btn')
+    ?.addEventListener('click', resetToInitialView);
+  document.querySelector('input[type="text"].dropdown-btn')
+    ?.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && UserLocation.latitude !== null) {
+        e.preventDefault();
+        resetToInitialView();
+      }
+    });
+}
+
+async function loadNearbyStores() {
+  if (isFetchingNearby) return;
+  isFetchingNearby = true;
+
+  const currentBtn = document.getElementById('current-location-btn');
+  const resetBtn = document.getElementById('reset-location-btn');
+  if (currentBtn) currentBtn.style.display = 'none';
+
+  try {
+    showLocationLoader('Detecting location...');
+    await getCurrentLocation();
+
+    updateLoaderMessage('Fetching address...');
+
+    const place = await reverseGeocode(
+      UserLocation.latitude,
+      UserLocation.longitude
+    );
+
+    updateLocationInput(place);
+
+    // SHOW RESET BUTTON
+    if (resetBtn) {
+      resetBtn.style.display = 'block';
+    }
+
+    // Store selected value
+    const input = document.querySelector('input[name="location-address"]');
+
+    if (input && place) {
+      input.dataset.selectedSearch = place;
+    }
+
+    updateLoaderMessage('Finding nearby stores...');
+    if (App.stores.length === 0) await loadRetailers();
+
+    const nearby = filterNearbyStores(App.stores);
+    hideLocationLoader();
+
+    if (!nearby.length) {
+      alert(`No stores found within ${NEARBY_STORES_RADIUS_KM} km of your location.`);
+      if (currentBtn) currentBtn.style.display = 'block';
+      if (resetBtn) resetBtn.style.display = 'none';
+      UserLocation.latitude = UserLocation.longitude = UserLocation.accuracy = null;
+      clearLocationInput();
+      return;
+    }
+
+    if (resetBtn) resetBtn.style.display = 'block';
+
+    App.stores = nearby;
+    renderRetailers(nearby);
+    updateDealerUI({ count: nearby.length });
+    await reinitializeMap({ showUserLocation: true });
+
+  } catch (err) {
+    console.error('loadNearbyStores error:', err);
+    hideLocationLoader();
+    alert('Unable to get your location. Please enable location services and try again.');
+    if (currentBtn) currentBtn.style.display = 'block';
+    if (resetBtn) resetBtn.style.display = 'none';
+    UserLocation.latitude = UserLocation.longitude = UserLocation.accuracy = null;
+    clearLocationInput();
+  } finally {
+    isFetchingNearby = false;
+  }
+}
+
+// async function resetToInitialView() {
+//   const currentBtn = document.getElementById('current-location-btn');
+//   const resetBtn   = document.getElementById('reset-location-btn');
+
+//   clearMarkers();
+//   UserLocation.latitude = UserLocation.longitude = UserLocation.accuracy = null;
+//   clearLocationInput();
+
+//   if (currentBtn) currentBtn.style.display = 'block';
+//   if (resetBtn)   resetBtn.style.display   = 'none';
+
+//   await loadRetailers();
+//   await reinitializeMap();
+// }
+
+async function resetToInitialView() {
+  const currentBtn = document.getElementById('current-location-btn');
+  const resetBtn = document.getElementById('reset-location-btn');
+
+  const input = document.querySelector('input[name="location-address"]');
+
+  const categorySpan = document.querySelector('#categoryDropdown .dropdown-btn span');
+  const radiusSpan = document.querySelector('#radiusDropdown .dropdown-btn span');
+
+  const dropdown = document.querySelector('.input-box.dropdown');
+  const list = document.getElementById('locationDropdownList');
+
+  // Clear markers
+  clearMarkers();
+
+  // Reset location object
+  UserLocation.latitude = null;
+  UserLocation.longitude = null;
+  UserLocation.accuracy = null;
+
+  // Clear input
+  if (input) {
+    input.value = '';
+    delete input.dataset.selectedSearch;
+  }
+
+  // Clear dropdown suggestions
+  if (list) list.innerHTML = '';
+
+  // Close dropdown
+  dropdown?.classList.remove('active');
+
+  // Reset category dropdown
+  if (categorySpan) {
+    categorySpan.innerText = 'Select Category';
+    categorySpan.classList.add('placeholder');
+  }
+
+  // Reset radius dropdown
+  if (radiusSpan) {
+    radiusSpan.innerText = 'Radius';
+    radiusSpan.classList.add('placeholder');
+  }
+
+  // Button visibility
+  if (currentBtn) currentBtn.style.display = 'block';
+  if (resetBtn) resetBtn.style.display = 'none';
+
+  // Reload all retailers
+  await loadRetailers();
+
+  // Reset map
+  await reinitializeMap();
+}
+
+function filterNearbyStores(stores, radiusKm = NEARBY_STORES_RADIUS_KM) {
+  if (!UserLocation.latitude || !UserLocation.longitude) return [];
+  return stores
+    .map(store => ({
+      ...store,
+      distance: parseFloat(
+        calculateDistance(
+          UserLocation.latitude, UserLocation.longitude,
+          parseFloat(store.latitude), parseFloat(store.longitude),
+        ).toFixed(2),
+      ),
+    }))
+    .filter(s => s.distance <= radiusKm)
+    .sort((a, b) => a.distance - b.distance);
+}
+
+// ============================================================
+// API CALLS
+// ============================================================
+
+async function loadRetailers(params = {}) {
+  try {
+    const query = new URLSearchParams();
+    if (params.search) query.append('search', params.search);
+    if (params.category) query.append('category', params.category);
+    if (params.radius) query.append('radius', params.radius);
+    if (params.lat) query.append('lat', params.lat);
+    if (params.lng) query.append('lng', params.lng);
+
+    const url = `${window.RETAILER_API_URL || ''}/retailers?${query}`;
+    const result = await fetch(url).then(r => r.json());
+    const data = result.success ? (result.data || []) : [];
+
+    App.stores = data.filter(s => s.latitude && s.longitude);
+    renderRetailers(data);
+    updateDealerUI({ search: params.search, count: data.length, radius: params.radius });
+
+  } catch (err) {
+    console.error('loadRetailers error:', err);
+    renderRetailers([]);
+    updateDealerUI({ count: 0 });
+  }
 }
 
 async function loadCategories() {
   try {
-    const baseUrl = window.RETAILER_API_URL || "";
-    const shop = window.SHOP_DOMAIN;
-
-    const response = await fetch(`${baseUrl}/categories?shop=${shop}`);
-
-    if (!response.ok) {
-      throw new Error("API failed");
-    }
-
-    const result = await response.json();
-
-    if (result.success) {
-      renderCategories(result.data);
-    }
-
-    console.log("FRONTEND DATA:", result.data);
-  } catch (error) {
-    console.error("Category load failed:", error);
+    const url = `${window.RETAILER_API_URL || ''}/categories?shop=${window.SHOP_DOMAIN || ''}`;
+    const result = await fetch(url).then(r => r.json());
+    if (result.success) renderCategories(result.data);
+  } catch (err) {
+    console.error('loadCategories error:', err);
   }
 }
 
+async function loadFilterSettings() {
+  try {
+    const url = `${window.RETAILER_API_URL || ''}/settings?shop=${window.SHOP_DOMAIN || ''}`;
+    const result = await fetch(url).then(r => r.json());
+    if (result.success && result.data.length > 0) {
+      document.querySelector('.right-wrap')
+        ?.classList.toggle('no-filters', !result.data[0].filter_enabled);
+    }
+  } catch (err) {
+    console.error('loadFilterSettings error:', err);
+  }
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+
+function renderRetailers(data) {
+  const container = document.getElementById('retailers-list');
+  if (!container) return;
+
+  container.innerHTML = data.map(item => {
+    const address = [
+      item.address_line1, item.address_line2,
+      item.city, item.state, item.postal_code,
+    ].filter(Boolean).join(', ');
+
+    return `
+      <div class="custom-location-card">
+        <div class="content-block">
+          <div class="title-block">
+            <h4>${item.name || ''}</h4>
+            <span>${item.country || ''}</span>
+          </div>
+          <ul class="icon-list">
+            <li>
+              <em><img src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Location.svg?v=1777545764" alt="Location Icon"></em>
+              <span>${address || 'Address not available'}</span>
+            </li>
+            ${item.phone ? `
+            <li>
+              <em><img src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Call.svg?v=1777545764" alt="Phone Icon"></em>
+              <a href="tel:${item.phone}">${item.phone}</a>
+            </li>` : ''}
+            ${item.website_url ? `
+            <li>
+              <em><img src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Website.svg?v=1777545764" alt="Web Icon"></em>
+              <a href="${item.website_url}" target="_blank" rel="noopener">${cleanUrl(item.website_url)}</a>
+            </li>` : ''}
+          </ul>
+        </div>
+        <div class="btn-wrap">
+          ${item.website_url
+        ? `<a href="${item.website_url}" class="btn secondary-btn" target="_blank" rel="noopener">Visit website</a>`
+        : ''}
+          ${item.google_maps_link
+        ? `<a href="${item.google_maps_link}" class="btn btn-primary" target="_blank" rel="noopener">Get Direction</a>`
+        : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
 function renderCategories(categories) {
-  const dropdown = document.querySelector("#categoryDropdown .dropdown-list");
-
+  const dropdown = document.querySelector('#categoryDropdown .dropdown-list');
   if (!dropdown) return;
-
-  dropdown.innerHTML = "";
-
-  categories.forEach((cat) => {
-    const div = document.createElement("div");
+  dropdown.innerHTML = '';
+  categories.forEach(cat => {
+    const div = document.createElement('div');
     div.innerText = cat.name;
-
-    div.addEventListener("click", (e) => {
+    div.addEventListener('click', e => {
       e.stopPropagation();
-      const btn = document.querySelector("#categoryDropdown .dropdown-btn span");
-      btn.classList.remove("placeholder");
-      btn.innerText = cat.name;
-
-      document.getElementById("categoryDropdown").classList.remove("active");
+      document.querySelector('#categoryDropdown .dropdown-btn span').innerText = cat.name;
+      document.getElementById('categoryDropdown').classList.remove('active');
     });
-
     dropdown.appendChild(div);
   });
 }
 
-function setupDropdowns() {
+// ============================================================
+// UI HELPERS
+// ============================================================
+
+function updateDealerUI({ search = null, count = 0, radius = null } = {}) {
+  const titleEl = document.getElementById('dealer-title');
+  const subtitleEl = document.getElementById('dealer-subtitle');
+  const countEl = document.getElementById('dealer-count');
+  const locStr = `Showing ${count} authorized location${count !== 1 ? 's' : ''}`;
+
+  if (search) {
+    if (titleEl) titleEl.innerText = `Dealers near "${search}"`;
+    if (subtitleEl) subtitleEl.innerText = count > 0
+      ? `Showing ${count} available dealer${count !== 1 ? 's' : ''} ${locStr}${radius ? ` within ${radius}` : ''}`
+      : `No dealers found for "${search}"`;
+  } else {
+    if (titleEl) titleEl.innerText = 'Dealers';
+    if (subtitleEl) subtitleEl.innerText = count > 0
+      ? `Showing ${count} available dealer${count !== 1 ? 's' : ''}`
+      : 'No dealers available. Try using filters or search.';
+  }
+
+  if (countEl) countEl.innerText = locStr;
 }
+
+function cleanUrl(url) {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
+
+// ============================================================
+// DROPDOWNS
+// ============================================================
+
+function initDropdowns() {
+  const selects = document.querySelectorAll('#categoryDropdown, #radiusDropdown');
+
+  selects.forEach(drop => {
+    const btn = drop.querySelector('.dropdown-btn');
+
+    btn?.addEventListener('click', () => {
+      const was = drop.classList.contains('active');
+      selects.forEach(d => d.classList.remove('active'));
+      if (!was) drop.classList.add('active');
+    });
+
+    drop.querySelectorAll('.dropdown-list div').forEach(opt => {
+      opt.addEventListener('click', () => {
+        const span = btn?.querySelector('span');
+        if (span) {
+          span.classList.remove('placeholder');
+          span.innerText = opt.innerText;
+        }
+        drop.classList.remove('active');
+      });
+    });
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#categoryDropdown') && !e.target.closest('#radiusDropdown')) {
+      selects.forEach(d => d.classList.remove('active'));
+    }
+  });
+
+  document.querySelector('.search-container .btn-primary')
+    ?.addEventListener('click', handleSearch);
+}
+
+async function handleSearch() {
+  const searchInput = document.querySelector('input[name="location-address"]');
+  const categorySpan = document.querySelector('#categoryDropdown .dropdown-btn span');
+  const radiusSpan = document.querySelector('#radiusDropdown .dropdown-btn span');
+
+  // const searchValue   = searchInput?.value?.trim() || null;
+  const searchValue =
+    searchInput?.dataset?.selectedSearch ||
+    searchInput?.value?.trim() ||
+    null;
+  const categoryValue = categorySpan?.innerText?.includes('Select') ? null : categorySpan?.innerText;
+  const radiusValue = radiusSpan?.innerText?.includes('Radius') ? null : radiusSpan?.innerText;
+
+  const params = {};
+  if (searchValue) params.search = searchValue;
+  if (categoryValue) params.category = categoryValue;
+
+  if (radiusValue) {
+    try {
+      const num = parseFloat(radiusValue);
+      await getCurrentLocation();
+      params.lat = UserLocation.latitude;
+      params.lng = UserLocation.longitude;
+      params.radius = getDistanceUnit() === 'miles' ? num * 1.60934 : num;
+    } catch {
+      alert('Unable to fetch current location. Please allow location access.');
+      return;
+    }
+  }
+
+  await loadRetailers(params);
+  await reinitializeMap();
+}
+
+// ============================================================
+// LOCATION SEARCH — autocomplete suggestions
+// ============================================================
+
+let suggestionTimer = null;
 
 function setupLocationSearch() {
   const input = document.querySelector('input[name="location-address"]');
-  const dropdown = input.closest(".dropdown");
-  const list = dropdown.querySelector(".dropdown-list");
+  if (!input) return;
 
-  let debounceTimer;
+  const dropdown = input.closest('.dropdown');
+  const list = document.getElementById('locationDropdownList');
 
-  input.addEventListener("input", () => {
+  input.addEventListener('input', () => {
+
+    clearTimeout(suggestionTimer);
+
     const value = input.value.trim();
 
-    clearTimeout(debounceTimer);
+    const resetBtn = document.getElementById('reset-location-btn');
 
-    debounceTimer = setTimeout(async () => {
+    // SHOW close button when input has value
+    if (resetBtn) {
+      resetBtn.style.display = value ? 'block' : 'none';
+    }
 
-      // ✅ WHEN EMPTY → RESET DATA
-      if (!value) {
-        list.innerHTML = "";
-        dropdown.classList.remove("active");
+    if (!value) {
 
-        await loadRetailers(); // 🔥 main fix
+      // remove selected search
+      delete input.dataset.selectedSearch;
 
-        return;
+      // clear dropdown
+      if (list) list.innerHTML = '';
+
+      // close dropdown
+      dropdown.classList.remove('active');
+
+      return;
+    }
+
+    suggestionTimer = setTimeout(async () => {
+
+      const results = await fetchSuggestions(value);
+
+      if (results.length) {
+
+        dropdown.classList.add('active');
+
+        renderLocationDropdown(results, input, dropdown);
+
+      } else {
+
+        if (list) {
+          list.innerHTML = '<div class="no-data">No results found</div>';
+        }
+
+        dropdown.classList.add('active');
       }
-
-      dropdown.classList.add("active");
-
-      const results = await searchRetailers(value);
-
-      renderLocationDropdown(results, input, dropdown);
 
     }, 300);
   });
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      if (list) list.innerHTML = '';
+      dropdown.classList.remove('active');
+      handleSearch();
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.input-box.dropdown')) {
+      if (list) list.innerHTML = '';
+      dropdown.classList.remove('active');
+    }
+  });
 }
 
-async function searchRetailers(search) {
+async function fetchSuggestions(search) {
   try {
-    const baseUrl = window.RETAILER_API_URL || "";
-
-    const query = new URLSearchParams();
-    query.append("search", search);
-
-    const url = `${baseUrl}/retailers?${query.toString()}`;
-
-    const res = await fetch(url);
-    const result = await res.json();
-
-    if (result.success) {
-      return result.data;
-    }
-
-    return [];
+    const url = `${window.RETAILER_API_URL || ''}/retailers?search=${encodeURIComponent(search)}`;
+    const result = await fetch(url).then(r => r.json());
+    return result.success ? (result.data || []) : [];
   } catch (err) {
-    console.error("Search API error:", err);
+    console.error('fetchSuggestions error:', err);
     return [];
   }
 }
 
 function renderLocationDropdown(data, input, dropdown) {
-  const list = document.getElementById("locationDropdownList");
-
+  const list = document.getElementById('locationDropdownList');
   if (!list) return;
 
-  list.innerHTML = "";
-
   if (!data.length) {
-    list.innerHTML = `<div class="no-data">No results found</div>`;
+    list.innerHTML = '<div class="no-data">No results found</div>';
     return;
   }
 
-  data.forEach((item) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "location-list-item";
+  list.innerHTML = data.map((item, i) => {
+    const addr = [
+      item.address_line1, item.address_line2,
+      item.city, item.state, item.postal_code,
+    ].filter(Boolean).join(', ');
 
-    const fullAddress = [
-      item.address_line1,
-      item.address_line2,
-      item.city,
-      item.state,
-      item.postal_code,
-    ]
-      .filter(Boolean)
-      .join(", ");
-
-    wrapper.innerHTML = `
-  <h5>
-  <span class="icon-wrap">
-  <img src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/location-pin.svg?v=1777982203" alt="Location Icon">
-  </span>
+    return `
+      <div class="location-list-item" data-index="${i}">
+        <h5>
+          <span class="icon-wrap">
+            <img src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/location-pin.svg?v=1777982203" alt="pin">
+          </span>
           ${item.name}
-  </h5>
-  <p>${fullAddress}</p>
-      `;
+        </h5>
+        <p>${addr}</p>
+      </div>`;
+  }).join('');
 
-    // ✅ THIS WILL WORK ONCE CSS IS FIXED
-    wrapper.onclick = function () {
-      input.value = item.name;
-      dropdown.classList.remove("active");
+  // list.onclick = e => {
+  //   const item = e.target.closest('.location-list-item');
+  //   if (!item) return;
 
-      // trigger search
-      document.querySelector(".search-container .btn-primary").click();
-    };
+  //   e.stopPropagation();
+  //   clearTimeout(suggestionTimer);
+  //   suggestionTimer = null;
 
-    list.appendChild(wrapper);
-  });
-}
+  //   const selected = data[parseInt(item.dataset.index, 10)];
+  //   input.value = selected.name;
+  //   list.innerHTML = '';
+  //   dropdown.classList.remove('active');
 
-async function loadFilterSettings() {
-  try {
-    const baseUrl = window.RETAILER_API_URL || "";
-    const shop = window.SHOP_DOMAIN;
+  //   loadRetailers({ search: selected.name }).then(() => reinitializeMap());
+  // };
+  list.onclick = e => {
+    const item = e.target.closest('.location-list-item');
+    if (!item) return;
 
-    console.log("SHOP DOMAIN:", shop);
+    e.stopPropagation();
+    clearTimeout(suggestionTimer);
+    suggestionTimer = null;
 
-    const res = await fetch(`${baseUrl}/settings?shop=${shop}`);
-    const result = await res.json();
+    const selected = data[parseInt(item.dataset.index, 10)];
 
-    console.log("FILTER API RESPONSE:", result);
+    // Only update input field
+    input.value = selected.name;
 
-    if (result.success && result.data.length > 0) {
-      const filterEnabled = result.data[0].filter_enabled;
+    // Store selected retailer/location
+    input.dataset.selectedSearch = selected.name;
 
-      const rightWrap = document.querySelector(".right-wrap");
-
-      if (filterEnabled) {
-        rightWrap.classList.remove("no-filters"); // ✅ show filters
-      } else {
-        rightWrap.classList.add("no-filters"); // ❌ hide filters via class
-      }
-    }
-
-  } catch (err) {
-    console.error("Filter API error:", err);
-  }
-}
-
-function updateDealerHeader({ search, count, radius }) {
-  const titleEl = document.getElementById("dealer-title");
-  const subtitleEl = document.getElementById("dealer-subtitle");
-
-  // ✅ Case 1: Search applied
-  if (search) {
-    titleEl.innerText = `Dealers near "${search}"`;
-
-    subtitleEl.innerText =
-      count > 0
-        ? `Showing ${count} authorized location${count !== 1 ? "s" : ""}${radius ? ` within ${radius}` : ""
-        }`
-        : `No dealers found for "${search}"`;
-  }
-
-  // ✅ Case 2: No search (default state)
-  else {
-    titleEl.innerText = "Dealers";
-
-    subtitleEl.innerText =
-      count > 0
-        ? `Showing ${count} available dealer${count !== 1 ? "s" : ""}`
-        : `No dealers available. Try using filters or search.`;
-  }
+    // Close dropdown
+    list.innerHTML = '';
+    dropdown.classList.remove('active');
+  };
 }

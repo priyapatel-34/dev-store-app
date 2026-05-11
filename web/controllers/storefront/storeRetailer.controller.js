@@ -1,17 +1,28 @@
 import { pool } from "../../db/db.js";
-   
-  export async function getRetailers(req, res) {
-    try {
-      const store_id = 1;
-   
-      const { country, category, search, lat, lng, radius } = req.query;
-   
-      const radiusInKm = radius ? parseFloat(radius.replace("km", "")) : null;
-   
-      // ✅ Clean search (DO NOT break formatting like 111-55)
-      const cleanSearch = search ? search.trim().replace(/\s+/g, " ") : null;
-   
-      const query = `
+
+export async function getRetailers(req, res) {
+  try {
+    const store_id = 1;
+
+    const { country, category, search, lat, lng, radius } = req.query;
+
+    const radiusInKm = radius ? parseFloat(radius.replace("km", "")) : null;
+
+    const cleanSearch = search ? search.trim().replace(/\s+/g, " ") : null;
+    const settingsResult = await pool.query(
+          `
+      SELECT show_global_retailers
+      FROM admin_settings
+      WHERE store_id = $1
+      LIMIT 1
+      `,
+          [store_id]
+        );
+
+    const showGlobalRetailers =
+      settingsResult.rows[0]?.show_global_retailers ?? false;
+
+    const query = `
         SELECT
           r.id,
           r.store_id,
@@ -45,7 +56,13 @@ import { pool } from "../../db/db.js";
    
         WHERE r.store_id = $1
    
-        AND ($2::text IS NULL OR c.name ILIKE $2)
+        AND (
+          $8::boolean = TRUE
+          OR (
+            $2::text IS NULL
+            OR c.name ILIKE $2
+          )
+        )
         AND ($3::text IS NULL OR cat.name ILIKE $3)
    
         -- 🔥 IMPROVED SEARCH (handles +, -, spaces, exact match)
@@ -129,32 +146,32 @@ import { pool } from "../../db/db.js";
    
         ORDER BY r.id DESC;
       `;
-   
-      const values = [
-        store_id,
-        country ? `%${country}%` : null,
-        category ? `%${category}%` : null,
-        cleanSearch,
-        lat ? parseFloat(lat) : null,
-        lng ? parseFloat(lng) : null,
-        radiusInKm || null,
-      ];
-     
-      const result = await pool.query(query, values);
-   
-      return res.json({
-        success: true,
-        count: result.rows.length,
-        data: result.rows,
-      });
-   
-    } catch (err) {
-      console.error("❌ getRetailers error:", err);
-      return res.status(500).json({ error: err.message });
-    }
+
+    const values = [
+      store_id,
+      country ? `%${country}%` : null,
+      category ? `%${category}%` : null,
+      cleanSearch,
+      lat ? parseFloat(lat) : null,
+      lng ? parseFloat(lng) : null,
+      radiusInKm || null,
+      showGlobalRetailers
+    ];
+
+    const result = await pool.query(query, values);
+
+    return res.json({
+      success: true,
+      count: result.rows.length,
+      data: result.rows,
+    });
+
+  } catch (err) {
+    console.error("❌ getRetailers error:", err);
+    return res.status(500).json({ error: err.message });
   }
-   
-   
-   
-   
-   
+}
+
+
+
+

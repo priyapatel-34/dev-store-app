@@ -117,6 +117,15 @@
     justify-content: center;
 }
 
+.dealer-locations-section .reset-location-btn {
+    background: transparent;
+    border: none;
+    outline: none;
+    width: 20px;
+    min-width: 20px;
+    cursor: pointer;
+}
+
 .dealer-locations-section .icon-list li a {
     color: inherit;
     font: inherit;
@@ -178,7 +187,7 @@
 }
 
 .dealer-locations-section .right-block .map {
-    height: 100%;
+    height: 100% !important;
     width: 100%;
 }
 
@@ -392,26 +401,29 @@
 }
 
 
-	
+
 /* ============================================================
    LOCATION LOADER - Matches Theme
    ============================================================ */
-   .dealer-locations-section .input-box .location-loader {
+.dealer-locations-section .input-box .location-loader {
     display: none;
     align-items: center;
     gap: 6px;
     position: absolute;
     top: 50%;
-    right: 44px; /* sits beside the location button */
+    right: 44px;
+    /* sits beside the location button */
     transform: translateY(-50%);
     pointer-events: none;
     z-index: 5;
-  }
-  .dealer-locations-section .input-box .location-loader.active {
+}
+
+.dealer-locations-section .input-box .location-loader.active {
     display: flex;
-  }
-  /* Spinner - matches theme blue accent */
-  .dealer-locations-section .input-box .location-loader .spinner {
+}
+
+/* Spinner - matches theme blue accent */
+.dealer-locations-section .input-box .location-loader .spinner {
     width: 16px;
     height: 16px;
     min-width: 16px;
@@ -419,12 +431,16 @@
     border-top-color: #ffffff;
     border-radius: 50%;
     animation: locator-spin 0.75s linear infinite;
-  }
-  @keyframes locator-spin {
-    to { transform: rotate(360deg); }
-  }
-  /* Loader text - matches placeholder style */
-  .dealer-locations-section .input-box .location-loader .loader-text {
+}
+
+@keyframes locator-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Loader text - matches placeholder style */
+.dealer-locations-section .input-box .location-loader .loader-text {
     color: #818183;
     font-family: "Sennheiser Neue", sans-serif;
     font-weight: 400;
@@ -434,76 +450,79 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 160px;
-  }
-  /* Dim input while loading */
-  .dealer-locations-section .input-box.loading input {
+}
+
+/* Dim input while loading */
+.dealer-locations-section .input-box.loading input {
     opacity: 0.4;
     pointer-events: none;
-  }
-  /* Hide current location button while loading */
-  .dealer-locations-section .input-box.loading .current-location-btn {
+}
+
+/* Hide current location button while loading */
+.dealer-locations-section .input-box.loading .current-location-btn {
     opacity: 0.3;
     pointer-events: none;
-  }
-  .dealer-location-block .leaflet-pane {z-index:1;}
-  .dealer-location-block .leaflet-zoom-box {
-      z-index: 2;
-  }
-   
-  .dealer-location-block .leaflet-pane {
-      z-index: 1;
-  }
-   
-  .dealer-location-block .leaflet-tile-pane {
-      z-index: 1;
-  }
-   
-  .dealer-location-block .leaflet-overlay-pane {
-      z-index: 1;
-  }
-   
-  .dealer-location-block .leaflet-shadow-pane {
-      z-index: 1;
-  }
-   
-  .dealer-location-block .leaflet-marker-pane {
-      z-index: 1;
-  }
-   
-  .dealer-location-block .leaflet-tooltip-pane {
-      z-index: 1;
-  }
-  #map-container {
-    width: 100%;
-    height: 500px;
-  }
-  .dealer-location-block .leaflet-popup-pane {
-      z-index: 1;
-  }
-   
-  .dealer-location-block .leaflet-map-pane canvas {
-      z-index: 1;
-  }
-   
-  .dealer-location-block .leaflet-map-pane svg {
-      z-index: 1;
-  }
-   
-  .dealer-location-block .leaflet-control {
-      z-index: 2;
-  }
-   
-  .dealer-location-block .leaflet-top,
-  .dealer-location-block .leaflet-bottom {
-      z-index: 2;
-  }
+}
 
-  .loader-wrapper {
+.dealer-location-block .leaflet-pane {
+    z-index: 1;
+}
+
+.dealer-location-block .leaflet-zoom-box {
+    z-index: 2;
+}
+
+.dealer-location-block .leaflet-pane {
+    z-index: 1;
+}
+
+.dealer-location-block .leaflet-tile-pane {
+    z-index: 1;
+}
+
+.dealer-location-block .leaflet-overlay-pane {
+    z-index: 1;
+}
+
+.dealer-location-block .leaflet-shadow-pane {
+    z-index: 1;
+}
+
+.dealer-location-block .leaflet-marker-pane {
+    z-index: 1;
+}
+
+.dealer-location-block .leaflet-tooltip-pane {
+    z-index: 1;
+}
+
+.dealer-location-block .leaflet-popup-pane {
+    z-index: 1;
+}
+
+.dealer-location-block .leaflet-map-pane canvas {
+    z-index: 1;
+}
+
+.dealer-location-block .leaflet-map-pane svg {
+    z-index: 1;
+}
+
+.dealer-location-block .leaflet-control {
+    z-index: 2;
+}
+
+.dealer-location-block .leaflet-top,
+.dealer-location-block .leaflet-bottom {
+    z-index: 2;
+}
+
+.loader-wrapper {
     text-align: center;
     padding: 40px;
-  }
-  
-  .spinner {
+}
+
+.spinner {
     width: 40px;
     height: 40px;
     border: 4px solid #ddd;
@@ -511,11 +530,13 @@
     border-radius: 50%;
     display: inline-block;
     animation: spin 1s linear infinite;
-  }
-  
-  @keyframes spin {
-    100% { transform: rotate(360deg); }
-  }
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
+    }
+}
 
 @media (hover: hover) {
     .dealer-locations-section .icon-list li a:hover {
@@ -605,9 +626,11 @@
     .hero-banner-section {
         display: none;
     }
+
     .authorized-locator-page .content-sections {
         padding: 94px var(--gutter) 60px;
     }
+
     .dealer-locations-section .dropdowns-wrap {
         flex: 0 0 100%;
         max-width: 100%;
@@ -628,11 +651,15 @@
     .dealer-locations-section .input-box .location-loader {
         right: 40px;
     }
+
     .dealer-locations-section .input-box .location-loader .loader-text {
-        display: none; /* only show spinner on mobile */
+        display: none;
+        /* only show spinner on mobile */
     }
 }
+
 @media (max-width: 480px) {
+
     .dealer-locations-section .dropdown.category,
     .dealer-locations-section .dropdown:not(.input-box) {
         flex: 0 0 100%;

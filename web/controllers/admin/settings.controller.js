@@ -21,58 +21,106 @@ async function getShopIdFromSession(res) {
 }
 
 export async function getFilterSettings(req, res) {
+
     try {
+
         const store_id = await getShopIdFromSession(res);
 
         const result = await pool.query(
-            `SELECT filter_enabled
-         FROM admin_settings
-         WHERE store_id = $1
-         LIMIT 1`,
+            `
+            SELECT
+                filter_enabled,
+                show_global_retailers
+            FROM admin_settings
+            WHERE store_id = $1
+            LIMIT 1
+            `,
             [store_id]
         );
 
         return res.json({
             success: true,
-            data: result.rows[0] || { filter_enabled: false }
+            data: result.rows[0] || {
+                filter_enabled: false,
+                show_global_retailers: false
+            }
         });
 
     } catch (err) {
+
         console.error(err);
 
         if (err.message === "Unauthorized") {
-            return res.status(401).json({ error: err.message });
+            return res.status(401).json({
+                success: false,
+                error: err.message
+            });
         }
 
         if (err.message === "Shop not registered") {
-            return res.status(404).json({ error: err.message });
+            return res.status(404).json({
+                success: false,
+                error: err.message
+            });
         }
 
-        return res.status(500).json({ error: "Internal Server Error" });
+        return res.status(500).json({
+            success: false,
+            error: err.message || "Internal Server Error"
+        });
+
     }
 }
 
 export async function updateFilterSettings(req, res) {
+
     try {
-      const store_id = await getShopIdFromSession(res);
-      const { filter_enabled } = req.body;
-  
-      const result = await pool.query(
-        `INSERT INTO admin_settings (store_id, filter_enabled)
-         VALUES ($1, $2)
-         ON CONFLICT (store_id)
-         DO UPDATE SET filter_enabled = EXCLUDED.filter_enabled
-         RETURNING *`,
-        [store_id, filter_enabled]
-      );
-  
-      return res.json({
-        success: true,
-        filter_enabled: result.rows[0].filter_enabled
-      });
-  
+
+        const store_id = await getShopIdFromSession(res);
+
+        const {
+            filter_enabled,
+            show_global_retailers
+        } = req.body;
+
+        const result = await pool.query(
+            `
+            INSERT INTO admin_settings (
+                store_id,
+                filter_enabled,
+                show_global_retailers
+            )
+            VALUES ($1, $2, $3)
+
+            ON CONFLICT (store_id)
+
+            DO UPDATE SET
+                filter_enabled = EXCLUDED.filter_enabled,
+                show_global_retailers = EXCLUDED.show_global_retailers
+
+            RETURNING *
+            `,
+            [
+                store_id,
+                filter_enabled,
+                show_global_retailers
+            ]
+        );
+
+        return res.json({
+            success: true,
+            message: "Settings updated successfully",
+            data: result.rows[0]
+        });
+
     } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Internal Server Error" });
+
+        console.error(err);
+
+        return res.status(500).json({
+            success: false,
+            error: err.message || "Internal Server Error"
+        });
+
     }
-  }
+}

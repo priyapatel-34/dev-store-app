@@ -138,7 +138,7 @@ export async function createRetailer(req, res) {
     const store_id = await getShopIdFromSession(res);
 
     const {
-      country_id,
+      country,
       name,
       retailer_type,
       status,
@@ -157,6 +157,19 @@ export async function createRetailer(req, res) {
       notes,
       category_ids
     } = req.body;
+
+    let country_id = null;
+
+    if (country) {
+      const countryResult = await pool.query(
+        `SELECT id FROM countries WHERE name ILIKE $1 LIMIT 1`,
+        [country.trim()]
+      );
+
+      if (countryResult.rows.length) {
+        country_id = countryResult.rows[0].id;
+      }
+    }
 
     const result = await pool.query(
       `INSERT INTO retailers (
