@@ -28,8 +28,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await loadFilterSettings();
   await loadCategories();
-  await initGoogleMap();        
-  await loadRetailers(); 
+  await initGoogleMap();
+  await loadRetailers();
 });
 
 let mapsBootstrapped = false;
@@ -84,7 +84,7 @@ async function initGoogleMap() {
   });
 
   if (App.stores.length === 0) return;
-  
+
   await placeStoreMarkers(App.stores);
   fitBoundsToMarkers();
 }
@@ -96,10 +96,16 @@ async function placeStoreMarkers(stores) {
 
   stores
     .filter(s => s.latitude && s.longitude)
-    .forEach(store => {
+    .forEach((store, index) => {
+      const lat = parseFloat(store.latitude);
+      const lng = parseFloat(store.longitude);
+
+      // prevent overlapping markers
+      const offset = index * 0.00008;
+
       const position = {
-        lat: parseFloat(store.latitude),
-        lng: parseFloat(store.longitude),
+        lat: lat + offset,
+        lng: lng + offset,
       };
 
       // Custom SVG pin image
@@ -123,6 +129,86 @@ async function placeStoreMarkers(stores) {
       App.markers.push({ marker, storeId: store.id, position });
     });
 }
+
+// async function placeStoreMarkers(stores) {
+//   if (!App.map) return;
+
+//   const { AdvancedMarkerElement } =
+//     await google.maps.importLibrary('marker');
+
+//   // Track same coordinates
+//   const coordinateMap = {};
+
+//   stores
+//     .filter(s => s.latitude && s.longitude)
+//     .forEach((store) => {
+
+//       const lat = parseFloat(store.latitude);
+//       const lng = parseFloat(store.longitude);
+
+//       // unique coordinate key
+//       const key = `${lat}_${lng}`;
+
+//       // count duplicates
+//       coordinateMap[key] =
+//         (coordinateMap[key] || 0) + 1;
+
+//       const duplicateIndex = coordinateMap[key] - 1;
+
+//       // bigger spread for overlapping markers
+//       const spread = 0.01;
+
+//       // circular distribution
+//       const angle =
+//         duplicateIndex * (Math.PI / 4);
+
+//       const adjustedLat =
+//         lat + (Math.sin(angle) * spread);
+
+//       const adjustedLng =
+//         lng + (Math.cos(angle) * spread);
+
+//       const position = {
+//         lat: adjustedLat,
+//         lng: adjustedLng,
+//       };
+
+//       // marker image
+//       const pinImg = document.createElement('img');
+
+//       pinImg.src =
+//         'https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Mock_Map_Markers.svg';
+
+//       pinImg.title = store.name;
+
+//       pinImg.style.cssText =
+//         'width:38px;height:45px;cursor:pointer;display:block';
+
+//       const marker = new AdvancedMarkerElement({
+//         map: App.map,
+//         position,
+//         title: store.name,
+//         content: pinImg,
+//       });
+
+//       marker.addListener('click', () => {
+//         sharedInfoWindow.setContent(
+//           buildPopupHTML(store)
+//         );
+
+//         sharedInfoWindow.open({
+//           map: App.map,
+//           anchor: marker,
+//         });
+//       });
+
+//       App.markers.push({
+//         marker,
+//         storeId: store.id,
+//         position,
+//       });
+//     });
+// }
 
 async function placeUserLocationMarker() {
   if (!App.map || !UserLocation.latitude) return;
@@ -249,20 +335,51 @@ function renderRadiusDropdown() {
 // GEOLOCATION
 // ============================================================
 
-function getCurrentLocation() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
+async function getCurrentLocation() {
+  return new Promise(async (resolve, reject) => {
 
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        UserLocation.latitude = coords.latitude;
-        UserLocation.longitude = coords.longitude;
-        UserLocation.accuracy = coords.accuracy;
-        resolve(UserLocation);
-      },
-      reject,
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-    );
+    if (navigator.geolocation) {
+
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+
+          resolve({
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            source: 'gps'
+          });
+
+        },
+
+        async () => {
+
+          // fallback to IP location
+          try {
+
+            const res = await fetch('https://ipapi.co/json/');
+            const data = await res.json();
+
+            resolve({
+              latitude: data.latitude,
+              longitude: data.longitude,
+              source: 'ip'
+            });
+
+          } catch (err) {
+            reject(err);
+          }
+        },
+
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+
+    } else {
+      reject(new Error('Geolocation not supported'));
+    }
   });
 }
 
@@ -589,7 +706,7 @@ async function loadRetailers(params = {}) {
     if (params.lng) query.append('lng', params.lng);
 
     const url =
-  `${window.RETAILER_API_URL || ''}/retailers?shop=${window.SHOP_DOMAIN || ''}&${query}`;
+      `${window.RETAILER_API_URL || ''}/retailers?shop=${window.SHOP_DOMAIN || ''}&${query}`;
     const result = await fetch(url).then(r => r.json());
 
     if (result.success && result.data.length === 0 && result.fallback_location) {
@@ -603,22 +720,22 @@ async function loadRetailers(params = {}) {
 
     const data = result.success ? (result.data || []) : [];
 
-console.log("✅ retailers data", data);
+    console.log("✅ retailers data", data);
 
-App.stores = data.filter(
-  s => s.latitude && s.longitude
-);
+    App.stores = data.filter(
+      s => s.latitude && s.longitude
+    );
 
-renderRetailers(data);
+    renderRetailers(data);
 
-updateDealerUI({
-  search: params.search,
-  count: data.length,
-  radius: params.radius
-});
+    updateDealerUI({
+      search: params.search,
+      count: data.length,
+      radius: params.radius
+    });
 
-// ✅ IMPORTANT
-await reinitializeMap();
+    // ✅ IMPORTANT
+    await reinitializeMap();
     // App.stores = data.filter(s => s.latitude && s.longitude);
     // renderRetailers(data);
     // updateDealerUI({ search: params.search, count: data.length, radius: params.radius });
@@ -921,7 +1038,7 @@ function setupLocationSearch() {
 async function fetchSuggestions(search) {
   try {
     const url =
-    `${window.RETAILER_API_URL || ''}/retailers?shop=${window.SHOP_DOMAIN || ''}&search=${encodeURIComponent(search)}`;
+      `${window.RETAILER_API_URL || ''}/retailers?shop=${window.SHOP_DOMAIN || ''}&search=${encodeURIComponent(search)}`;
     const result = await fetch(url).then(r => r.json());
     return result.success ? (result.data || []) : [];
   } catch (err) {

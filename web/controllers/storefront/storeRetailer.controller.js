@@ -340,150 +340,155 @@ const store_id = storeData.id;
     ===================================================== */
 
     const query = `
-      SELECT
-        r.id,
-        r.store_id,
+  SELECT
+    r.id,
+    r.store_id,
+    r.name,
+    r.retailer_type,
+    r.status,
+    r.address_line1,
+    r.address_line2,
+    r.city,
+    r.state,
+    r.postal_code,
+    r.latitude,
+    r.longitude,
+    r.phone,
+    r.email,
+    r.website_url,
+    r.google_maps_link,
+    r.opening_hours,
+    r.notes,
+
+    c.id AS country_id,
+    c.name AS country,
+
+    COALESCE(
+      STRING_AGG(DISTINCT cat.name, ', '),
+      ''
+    ) AS categories
+
+  FROM retailers r
+
+  JOIN countries c
+    ON r.country_id = c.id
+
+  LEFT JOIN retailer_categories rc
+    ON r.id = rc.retailer_id
+
+  LEFT JOIN categories cat
+    ON rc.category_id = cat.id
+
+  WHERE
+  (
+    $8::boolean = TRUE
+    OR r.store_id = $1
+  )
+
+  AND r.status = 'active'
+
+  /* 🌍 COUNTRY FILTER */
+  AND (
+    $8::boolean = TRUE
+    OR (
+      $2::text IS NULL
+      OR c.name ILIKE $2
+    )
+  )
+
+  /* 🏷 CATEGORY FILTER */
+  AND (
+    $3::text IS NULL
+    OR cat.name ILIKE $3
+  )
+
+  /* 🔍 SEARCH FILTER */
+  AND (
+    $4::text IS NULL
+    OR length(trim($4)) = 0
+
+    OR REPLACE(REPLACE(
+      CONCAT_WS(
+        ' ',
         r.name,
-        r.retailer_type,
-        r.status,
         r.address_line1,
         r.address_line2,
         r.city,
         r.state,
-        r.postal_code,
-        r.latitude,
-        r.longitude,
-        r.phone,
-        r.email,
-        r.website_url,
-        r.google_maps_link,
-        r.opening_hours,
-        r.notes,
+        r.postal_code
+      ),
+      '+',
+      ' '
+    ), '-', ' ')
+    ILIKE '%' || REPLACE(REPLACE($4, '+', ' '), '-', ' ') || '%'
 
-        c.id AS country_id,
-        c.name AS country,
-
-        COALESCE(
-          STRING_AGG(DISTINCT cat.name, ', '),
-          ''
-        ) AS categories
-
-      FROM retailers r
-
-      JOIN countries c
-        ON r.country_id = c.id
-
-      LEFT JOIN retailer_categories rc
-        ON r.id = rc.retailer_id
-
-      LEFT JOIN categories cat
-        ON rc.category_id = cat.id
-
-      WHERE r.store_id = $1
-      AND r.status = 'active'
-
-      /* 🌍 COUNTRY FILTER */
-      AND (
-        $8::boolean = TRUE
-        OR (
-          $2::text IS NULL
-          OR c.name ILIKE $2
-        )
-      )
-
-      /* 🏷 CATEGORY FILTER */
-      AND (
-        $3::text IS NULL
-        OR cat.name ILIKE $3
-      )
-
-      /* 🔍 SEARCH FILTER */
-      AND (
-        $4::text IS NULL
-        OR length(trim($4)) = 0
-
-        OR REPLACE(REPLACE(
-          CONCAT_WS(
-            ' ',
-            r.name,
-            r.address_line1,
-            r.address_line2,
-            r.city,
-            r.state,
-            r.postal_code
-          ),
-          '+',
-          ' '
-        ), '-', ' ')
-        ILIKE '%' || REPLACE(REPLACE($4, '+', ' '), '-', ' ') || '%'
-
-        OR REPLACE(REPLACE(
-          CONCAT_WS(
-            ' ',
-            r.name,
-            r.address_line1,
-            r.address_line2,
-            r.city,
-            r.state,
-            r.postal_code
-          ),
-          '+',
-          ''
-        ), '-', '')
-        ILIKE '%' || REPLACE(REPLACE($4, '+', ''), '-', '') || '%'
-
-        OR r.postal_code ILIKE '%' || $4 || '%'
-
-        OR CONCAT_WS(
-          ' ',
-          r.name,
-          r.address_line1,
-          r.address_line2,
-          r.city,
-          r.state,
-          r.postal_code
-        )
-        ILIKE '%' || $4 || '%'
-      )
-
-      /* 📍 RADIUS FILTER */
-      AND (
-        $7::float IS NULL
-        OR (
-          6371 * acos(
-            cos(radians($5)) *
-            cos(radians(r.latitude)) *
-            cos(radians(r.longitude) - radians($6)) +
-            sin(radians($5)) *
-            sin(radians(r.latitude))
-          )
-        ) <= $7
-      )
-
-      GROUP BY
-        r.id,
-        r.store_id,
+    OR REPLACE(REPLACE(
+      CONCAT_WS(
+        ' ',
         r.name,
-        r.retailer_type,
-        r.status,
         r.address_line1,
         r.address_line2,
         r.city,
         r.state,
-        r.postal_code,
-        r.latitude,
-        r.longitude,
-        r.phone,
-        r.email,
-        r.website_url,
-        r.google_maps_link,
-        r.opening_hours,
-        r.notes,
-        c.id,
-        c.name
+        r.postal_code
+      ),
+      '+',
+      ''
+    ), '-', '')
+    ILIKE '%' || REPLACE(REPLACE($4, '+', ''), '-', '') || '%'
 
-      ORDER BY r.id DESC
-    `;
+    OR r.postal_code ILIKE '%' || $4 || '%'
+
+    OR CONCAT_WS(
+      ' ',
+      r.name,
+      r.address_line1,
+      r.address_line2,
+      r.city,
+      r.state,
+      r.postal_code
+    )
+    ILIKE '%' || $4 || '%'
+  )
+
+  /* 📍 RADIUS FILTER */
+  AND (
+    $7::float IS NULL
+    OR (
+      6371 * acos(
+        cos(radians($5)) *
+        cos(radians(r.latitude)) *
+        cos(radians(r.longitude) - radians($6)) +
+        sin(radians($5)) *
+        sin(radians(r.latitude))
+      )
+    ) <= $7
+  )
+
+  GROUP BY
+    r.id,
+    r.store_id,
+    r.name,
+    r.retailer_type,
+    r.status,
+    r.address_line1,
+    r.address_line2,
+    r.city,
+    r.state,
+    r.postal_code,
+    r.latitude,
+    r.longitude,
+    r.phone,
+    r.email,
+    r.website_url,
+    r.google_maps_link,
+    r.opening_hours,
+    r.notes,
+    c.id,
+    c.name
+
+  ORDER BY r.id DESC
+`;
 
     const values = [
       store_id,
