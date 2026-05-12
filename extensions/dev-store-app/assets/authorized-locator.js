@@ -26,9 +26,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupLocationSearch();
   initCurrentLocationButton();
 
-  // Load data and map in parallel where possible
-  await Promise.all([loadRetailers(), loadFilterSettings(), loadCategories()]);
-  await initGoogleMap();
+  await loadFilterSettings();
+  await loadCategories();
+  await initGoogleMap();        
+  await loadRetailers(); 
 });
 
 let mapsBootstrapped = false;
@@ -66,28 +67,15 @@ async function initGoogleMap() {
   const mapContainer = document.getElementById('map-container');
   if (!mapContainer) return;
 
-  if (App.stores.length === 0) {
-    mapContainer.innerHTML = '<p style="padding:20px;color:#555">No store locations available.</p>';
-    return;
-  }
-
   await bootstrapGoogleMaps();
 
-  const { Map, InfoWindow, LatLngBounds } = await google.maps.importLibrary('maps');
+  const { Map, InfoWindow } = await google.maps.importLibrary('maps');
 
   sharedInfoWindow = new InfoWindow();
 
-  const valid = App.stores.filter(s => s.latitude && s.longitude);
-  if (!valid.length) {
-    mapContainer.innerHTML = '<p style="padding:20px;color:#555">No stores have coordinates.</p>';
-    return;
-  }
-
-  const avgLat = valid.reduce((sum, s) => sum + parseFloat(s.latitude), 0) / valid.length;
-  const avgLng = valid.reduce((sum, s) => sum + parseFloat(s.longitude), 0) / valid.length;
   App.map = new Map(mapContainer, {
-    zoom: 4,
-    center: { lat: avgLat, lng: avgLng },
+    zoom: 6,
+    center: { lat: 20, lng: 0 },
     mapId: GOOGLE_MAP_ID,
     mapTypeControl: true,
     fullscreenControl: true,
@@ -95,6 +83,8 @@ async function initGoogleMap() {
     streetViewControl: true,
   });
 
+  if (App.stores.length === 0) return;
+  
   await placeStoreMarkers(App.stores);
   fitBoundsToMarkers();
 }
@@ -121,7 +111,7 @@ async function placeStoreMarkers(stores) {
       const marker = new AdvancedMarkerElement({
         map: App.map,
         position,
-        title: store.name, 
+        title: store.name,
         content: pinImg,
       });
 
@@ -523,6 +513,71 @@ function filterNearbyStores(stores, radiusKm = NEARBY_STORES_RADIUS_KM) {
 // ============================================================
 // API CALLS
 // ============================================================
+// async function showFallbackLocation(location) {
+//   if (!location) return;
+//   if (!App.map) await initGoogleMap();
+//   if (!App.map) return;
+
+//   clearMarkers();
+
+//   const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+
+//   const position = {
+//     lat: parseFloat(location.lat),
+//     lng: parseFloat(location.lng),
+//   };
+
+//   if (isNaN(position.lat) || isNaN(position.lng)) {
+//     console.error('❌ Invalid fallback coordinates:', location);
+//     return;
+//   }
+
+//   const pinImg = document.createElement('img');
+//   pinImg.src = 'https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Mock_Map_Markers.svg';
+//   pinImg.style.cssText = 'width:38px;height:45px;cursor:pointer;display:block';
+
+//   const marker = new AdvancedMarkerElement({
+//     map: App.map,
+//     position,
+//     title: location.capital || location.country || 'Location',
+//     content: pinImg,
+//   });
+
+//   App.markers.push({ marker, storeId: 'fallback-location', position });
+
+//   // ✅ These must fire AFTER marker is placed
+//   App.map.setCenter(position);
+//   App.map.setZoom(10);
+
+//   sharedInfoWindow.setContent(`
+//     <div style="padding:10px;font-size:14px;font-family:sans-serif;">
+//       <strong>No retailers found.</strong><br/>
+//       Showing: <strong>${location.capital || location.country}</strong>
+//     </div>
+//   `);
+
+//   sharedInfoWindow.open({ map: App.map, anchor: marker });
+// }
+async function showFallbackLocation(location) {
+  if (!location) return;
+  if (!App.map) await initGoogleMap();
+  if (!App.map) return;
+
+  clearMarkers();
+
+  const position = {
+    lat: parseFloat(location.lat),
+    lng: parseFloat(location.lng),
+  };
+
+  if (isNaN(position.lat) || isNaN(position.lng)) {
+    console.error('❌ Invalid fallback coordinates:', location);
+    return;
+  }
+
+  App.map.setCenter(position);
+  App.map.setZoom(10);
+}
 
 async function loadRetailers(params = {}) {
   try {
@@ -533,13 +588,40 @@ async function loadRetailers(params = {}) {
     if (params.lat) query.append('lat', params.lat);
     if (params.lng) query.append('lng', params.lng);
 
-    const url = `${window.RETAILER_API_URL || ''}/retailers?${query}`;
+    const url =
+  `${window.RETAILER_API_URL || ''}/retailers?shop=${window.SHOP_DOMAIN || ''}&${query}`;
     const result = await fetch(url).then(r => r.json());
+
+    if (result.success && result.data.length === 0 && result.fallback_location) {
+      if (!App.map) await initGoogleMap();
+      await showFallbackLocation(result.fallback_location);
+      App.stores = [];
+      renderRetailers([]);
+      updateDealerUI({ count: 0 });
+      return; // 🛑 STOP — don't overwrite map
+    }
+
     const data = result.success ? (result.data || []) : [];
 
-    App.stores = data.filter(s => s.latitude && s.longitude);
-    renderRetailers(data);
-    updateDealerUI({ search: params.search, count: data.length, radius: params.radius });
+console.log("✅ retailers data", data);
+
+App.stores = data.filter(
+  s => s.latitude && s.longitude
+);
+
+renderRetailers(data);
+
+updateDealerUI({
+  search: params.search,
+  count: data.length,
+  radius: params.radius
+});
+
+// ✅ IMPORTANT
+await reinitializeMap();
+    // App.stores = data.filter(s => s.latitude && s.longitude);
+    // renderRetailers(data);
+    // updateDealerUI({ search: params.search, count: data.length, radius: params.radius });
 
   } catch (err) {
     console.error('loadRetailers error:', err);
@@ -578,7 +660,27 @@ async function loadFilterSettings() {
 function renderRetailers(data) {
   const container = document.getElementById('retailers-list');
   if (!container) return;
+  if (!data || data.length === 0) {
+    container.innerHTML = `
+      <div class="no-retailers-found">
+        <div class="empty-icon">
+          <img 
+            src="https://cdn-icons-png.flaticon.com/512/2748/2748558.png" 
+            alt="No Results"
+          />
+        </div>
 
+        <h3>No results found within 10 mi of your search point.</h3>
+
+        <p>
+          There are no authorized dealers matching your current filters.
+          Try expanding your search area or adjusting the category.
+        </p>
+      </div>
+    `;
+
+    return;
+  }
   container.innerHTML = data.map(item => {
     const address = [
       item.address_line1, item.address_line2,
@@ -656,7 +758,7 @@ function updateDealerUI({ search = null, count = 0, radius = null } = {}) {
     if (titleEl) titleEl.innerText = 'Dealers';
     if (subtitleEl) subtitleEl.innerText = count > 0
       ? `Showing ${count} available dealer${count !== 1 ? 's' : ''}`
-      : 'No dealers available. Try using filters or search.';
+      : 'Showing available dealer, use filters or search to refine results.';
   }
 
   if (countEl) countEl.innerText = locStr;
@@ -818,7 +920,8 @@ function setupLocationSearch() {
 
 async function fetchSuggestions(search) {
   try {
-    const url = `${window.RETAILER_API_URL || ''}/retailers?search=${encodeURIComponent(search)}`;
+    const url =
+    `${window.RETAILER_API_URL || ''}/retailers?shop=${window.SHOP_DOMAIN || ''}&search=${encodeURIComponent(search)}`;
     const result = await fetch(url).then(r => r.json());
     return result.success ? (result.data || []) : [];
   } catch (err) {
