@@ -272,26 +272,18 @@ function buildPopupHTML(store) {
 
   return `
     <div style="min-width:220px;max-width:280px;font-family:'Sennheiser Neue';font-size:12px;line-height:1.5;padding:4px 2px; color: #818183; font-weight: 500;">
-      <h4 style="margin:0 0 8px;color:#000;font-size:16px;font-weight:600;">${store.name}</h4>
-      <p style="margin:4px 0"><strong>Address:</strong> ${address || 'N/A'}</p>
+      <h4 style="padding-right: 18px;margin:0 0 8px;color:#000;font-size:16px;font-weight:600;">${store.name}</h4>
+      <p style="margin:4px 0"><span><img src="src="./map-location-icon.svg" alt="Map location icon" /></span> ${address || 'N/A'}</p>
       ${distanceHTML}
       ${store.phone
-      ? `<p style="margin:4px 0"><strong>Phone:</strong> <a href="tel:${store.phone}" style="color:#1a73e8">${store.phone}</a></p>`
+      ? `<p style="margin:4px 0"><span><img src="./map-phone-icon.svg" alt="Map phone icon" /></span> <a href="tel:${store.phone}" style="color:inherit;">${store.phone}</a></p>`
       : ''}
-      ${store.email
-      ? `<p style="margin:4px 0"><strong>Email:</strong> <a href="mailto:${store.email}" style="color:#1a73e8">${store.email}</a></p>`
-      : ''}
-      ${store.opening_hours
-      ? `<p style="margin:4px 0"><strong>Hours:</strong> ${store.opening_hours}</p>`
-      : ''}
-      <p style="margin:4px 0"><strong>Status:</strong>
-        <span style="color:${store.status === 'active' ? '#188038' : '#d93025'};font-weight:600">
-          ${store.status.toUpperCase()}
-        </span>
-      </p>
-      ${store.website_url
-      ? `<p style="margin:6px 0 0"><a href="${store.website_url}" target="_blank" rel="noopener" style="color:#1a73e8">Visit Website ↗</a></p>`
-      : ''}
+      <div class="custom-footer-block">
+        ${store.website_url
+        ? `<p style="margin:6px 0 0"><a href="${store.website_url}" target="_blank" rel="noopener" style="color:#037cc2">Visit Website ↗</a></p>`
+        : ''}
+        <a class="btn btn-primary" title="Get Direction">Get Direcion</a>
+      </div>
     </div>`;
 }
 
@@ -343,9 +335,14 @@ async function getCurrentLocation() {
       navigator.geolocation.getCurrentPosition(
         ({ coords }) => {
 
+          UserLocation.latitude = coords.latitude;
+          UserLocation.longitude = coords.longitude;
+          UserLocation.accuracy = coords.accuracy;
+
           resolve({
             latitude: coords.latitude,
             longitude: coords.longitude,
+            accuracy: coords.accuracy,
             source: 'gps'
           });
 
@@ -359,9 +356,14 @@ async function getCurrentLocation() {
             const res = await fetch('https://ipapi.co/json/');
             const data = await res.json();
 
+            UserLocation.latitude = data.latitude;
+            UserLocation.longitude = data.longitude;
+            UserLocation.accuracy = null;
+
             resolve({
               latitude: data.latitude,
               longitude: data.longitude,
+              accuracy: null,
               source: 'ip'
             });
 
@@ -383,9 +385,7 @@ async function getCurrentLocation() {
   });
 }
 
-// ============================================================
 // REVERSE GEOCODING
-// ============================================================
 
 async function reverseGeocode(lat, lng) {
   try {
@@ -416,9 +416,7 @@ function getComponent(components, type) {
   return components.find(c => c.types.includes(type))?.long_name || null;
 }
 
-// ============================================================
 // LOCATION INPUT HELPERS
-// ============================================================
 
 function updateLocationInput(value) {
   const input = document.querySelector('input[name="location-address"]');
@@ -430,9 +428,7 @@ function clearLocationInput() {
   if (input) input.value = '';
 }
 
-// ============================================================
 // LOADER
-// ============================================================
 
 function showLocationLoader(message = 'Detecting location...') {
   const loader = document.getElementById('location-loader');
@@ -453,9 +449,7 @@ function updateLoaderMessage(message) {
   if (el) el.textContent = message;
 }
 
-// ============================================================
 // NEARBY STORES
-// ============================================================
 
 let isFetchingNearby = false;
 
@@ -483,13 +477,16 @@ async function loadNearbyStores() {
 
   try {
     showLocationLoader('Detecting location...');
-    await getCurrentLocation();
+    const location = await getCurrentLocation();
+    UserLocation.latitude = location.latitude;
+    UserLocation.longitude = location.longitude;
+    UserLocation.accuracy = location.accuracy || null;
 
     updateLoaderMessage('Fetching address...');
 
     const place = await reverseGeocode(
-      UserLocation.latitude,
-      UserLocation.longitude
+      location.latitude,
+      location.longitude
     );
 
     updateLocationInput(place);
@@ -720,8 +717,6 @@ async function loadRetailers(params = {}) {
 
     const data = result.success ? (result.data || []) : [];
 
-    console.log("✅ retailers data", data);
-
     App.stores = data.filter(
       s => s.latitude && s.longitude
     );
@@ -770,9 +765,7 @@ async function loadFilterSettings() {
   }
 }
 
-// ============================================================
 // RENDER
-// ============================================================
 
 function renderRetailers(data) {
   const container = document.getElementById('retailers-list');
@@ -782,7 +775,7 @@ function renderRetailers(data) {
       <div class="no-retailers-found">
         <div class="empty-icon">
           <img 
-            src="https://cdn-icons-png.flaticon.com/512/2748/2748558.png" 
+            src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Location_2.svg?v=1778669326" 
             alt="No Results"
           />
         </div>
@@ -809,7 +802,6 @@ function renderRetailers(data) {
         <div class="content-block">
           <div class="title-block">
             <h4>${item.name || ''}</h4>
-            <span>${item.country || ''}</span>
           </div>
           <ul class="icon-list">
             <li>
@@ -856,9 +848,7 @@ function renderCategories(categories) {
   });
 }
 
-// ============================================================
 // UI HELPERS
-// ============================================================
 
 function updateDealerUI({ search = null, count = 0, radius = null } = {}) {
   const titleEl = document.getElementById('dealer-title');
@@ -885,9 +875,7 @@ function cleanUrl(url) {
   return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 }
 
-// ============================================================
 // DROPDOWNS
-// ============================================================
 
 function initDropdowns() {
   const selects = document.querySelectorAll('#categoryDropdown, #radiusDropdown');
@@ -944,8 +932,8 @@ async function handleSearch() {
     try {
       const num = parseFloat(radiusValue);
       await getCurrentLocation();
-      params.lat = UserLocation.latitude;
-      params.lng = UserLocation.longitude;
+      params.lat = parseFloat(searchInput.dataset.selectedLat);
+      params.lng = parseFloat(searchInput.dataset.selectedLng);
       params.radius = getDistanceUnit() === 'miles' ? num * 1.60934 : num;
     } catch {
       alert('Unable to fetch current location. Please allow location access.');
@@ -957,9 +945,7 @@ async function handleSearch() {
   await reinitializeMap();
 }
 
-// ============================================================
 // LOCATION SEARCH — autocomplete suggestions
-// ============================================================
 
 let suggestionTimer = null;
 

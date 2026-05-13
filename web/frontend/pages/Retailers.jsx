@@ -18,11 +18,31 @@ import {
   Select,
   Text,
   TextField,
-  Toast,
   useIndexResourceState,
   Spinner,
-  Autocomplete
+  Autocomplete,
 } from "@shopify/polaris";
+import { handleApiResponse } from "../utils/apiHandler";
+import CommonToast from "../components/Toast";
+
+// Polaris v10 compat shims for BlockStack / InlineStack (added in v11)
+const GAP_MAP = { "0": "0px", "100": "4px", "200": "8px", "300": "12px", "400": "16px", "500": "20px", "600": "24px", "800": "32px", "1600": "64px" };
+const gapPx = (g) => GAP_MAP[String(g)] ?? "0px";
+
+const BlockStack = ({ children, gap = "0" }) => (
+  <div style={{ display: "flex", flexDirection: "column", gap: gapPx(gap) }}>{children}</div>
+);
+
+const InlineStack = ({ children, align, gap = "0" }) => {
+  const justifyMap = { "space-between": "space-between", end: "flex-end", start: "flex-start", center: "center" };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: gapPx(gap), justifyContent: justifyMap[align] || "flex-start" }}>
+      {children}
+    </div>
+  );
+};
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 5;
 
@@ -59,91 +79,40 @@ const EMPTY_RETAILER = {
 };
 
 const TABLE_HEADINGS = [
-  { title: "ID" },
-  { title: "Name" },
-  { title: "Type" },
-  { title: "Status" },
-  { title: "Address 1" },
-  { title: "Address 2" },
-  { title: "City" },
-  { title: "State" },
-  { title: "Country" },
-  { title: "Postal Code" },
-  { title: "Latitude" },
-  { title: "Longitude" },
-  { title: "Phone" },
-  { title: "Email" },
-  { title: "Website" },
-  { title: "Google Maps" },
-  { title: "Opening Hours" },
-  { title: "Categories" },
-  { title: "Notes" },
-  { title: "Actions" },
-];
+  "ID", "Name", "Type", "Status",
+  "Address 1", "Address 2", "City", "State", "Country", "Postal Code",
+  "Latitude", "Longitude", "Phone", "Email", "Website", "Google Maps",
+  "Opening Hours", "Categories", "Notes", "Actions",
+].map((title) => ({ title }));
 
 const CSV_TEMPLATE_HEADERS = [
-  "name",
-  "retailer_type",
-  "status",
-  "address_line1",
-  "address_line2",
-  "city",
-  "state",
-  "Country",
-  "postal_code",
-  "latitude",
-  "longitude",
-  "phone",
-  "email",
-  "website_url",
-  "google_maps_link",
-  "opening_hours",
-  "categories",
-  "notes",
+  "name", "retailer_type", "status", "address_line1", "address_line2",
+  "city", "state", "Country", "postal_code", "latitude", "longitude",
+  "phone", "email", "website_url", "google_maps_link", "opening_hours",
+  "categories", "notes",
 ];
+
+// ─── Validation ───────────────────────────────────────────────────────────────
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[0-9]{7,15}$/;
 
 const validateRetailerData = (data) => {
   const errors = {};
+  const required = (key, label) => {
+    if (!data[key]?.trim()) errors[key] = `${label} is required`;
+  };
 
-  // ✅ Retailer Name
-  if (!data.name?.trim()) {
-    errors.name = "Retailer name is required";
-  }
+  required("name", "Retailer name");
+  required("status", "Status");
+  required("country", "Country");
+  required("address_line1", "Address Line 1");
+  required("city", "City");
+  required("state", "State");
+  required("postal_code", "Postal code");
+  required("opening_hours", "Opening hours");
+  required("google_maps_link", "Google Maps link");
 
-  // ✅ Status
-  if (!data.status?.trim()) {
-    errors.status = "Status is required";
-  }
-
-  // ✅ Country
-  if (!data.country?.trim()) {
-    errors.country = "Country is required";
-  }
-
-  // ✅ Address Line 1
-  if (!data.address_line1?.trim()) {
-    errors.address_line1 = "Address Line 1 is required";
-  }
-
-  // ✅ City
-  if (!data.city?.trim()) {
-    errors.city = "City is required";
-  }
-
-  // ✅ State
-  if (!data.state?.trim()) {
-    errors.state = "State is required";
-  }
-
-  // ✅ Postal Code
-  if (!data.postal_code?.trim()) {
-    errors.postal_code = "Postal code is required";
-  }
-
-  // ✅ Phone
   if (!data.phone?.trim()) {
     errors.phone = "Phone is required";
   } else if (!PHONE_REGEX.test(data.phone)) {
@@ -154,52 +123,31 @@ const validateRetailerData = (data) => {
     errors.email = "Invalid email address";
   }
 
-  // ✅ Google Maps Link
-  if (!data.google_maps_link?.trim()) {
-    errors.google_maps_link = "Google Maps link is required";
-  } else if (!/^https?:\/\/(www\.)?google\./.test(data.google_maps_link)) {
+  if (data.google_maps_link && !/^https?:\/\/(www\.)?google\./.test(data.google_maps_link)) {
     errors.google_maps_link = "Invalid Google Maps link";
   }
 
-  // ✅ Categories (FIXED)
-  if (!data.category_ids || data.category_ids.length === 0) {
+  if (!data.category_ids?.length) {
     errors.category_ids = "At least one category is required";
   }
 
-  // ✅ Opening Hours
-  if (!data.opening_hours?.trim()) {
-    errors.opening_hours = "Opening hours are required";
-  }
-
-  // ✅ Latitude
   if (!data.latitude?.trim()) {
     errors.latitude = "Latitude is required";
   } else {
     const lat = Number(data.latitude);
-    if (isNaN(lat)) {
-      errors.latitude = "Latitude must be a number";
-    } else if (lat < -90 || lat > 90) {
-      errors.latitude = "Latitude must be between -90 and 90";
-    }
+    if (isNaN(lat)) errors.latitude = "Latitude must be a number";
+    else if (lat < -90 || lat > 90) errors.latitude = "Latitude must be between -90 and 90";
   }
 
-  // ✅ Longitude
   if (!data.longitude?.trim()) {
     errors.longitude = "Longitude is required";
   } else {
     const lng = Number(data.longitude);
-    if (isNaN(lng)) {
-      errors.longitude = "Longitude must be a number";
-    } else if (lng < -180 || lng > 180) {
-      errors.longitude = "Longitude must be between -180 and 180";
-    }
+    if (isNaN(lng)) errors.longitude = "Longitude must be a number";
+    else if (lng < -180 || lng > 180) errors.longitude = "Longitude must be between -180 and 180";
   }
 
-  // ❌ Prevent fake location
-  if (
-    Number(data.latitude) === 0 &&
-    Number(data.longitude) === 0
-  ) {
+  if (Number(data.latitude) === 0 && Number(data.longitude) === 0) {
     errors.latitude = "Invalid location (0,0 not allowed)";
     errors.longitude = "Invalid location (0,0 not allowed)";
   }
@@ -207,45 +155,112 @@ const validateRetailerData = (data) => {
   return errors;
 };
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 const downloadCSVTemplate = () => {
   const exampleRow = [
-    "Sample Store",
-    "India",
-    "offline",
-    "active",
-    "123 Main St",
-    "Suite 4",
-    "Mumbai",
-    "Maharashtra",
-    "India",
-    "400001",
-    "19.076090",
-    "72.877426",
-    "9876543210",
-    "store@example.com",
-    "https://example.com",
-    "https://maps.google.com/?q=...",
-    "Mon-Sat 9am-6pm",
-    "Near city center",
-    "Electronics,Clothing",
+    "Sample Store", "India", "offline", "active", "123 Main St",
+    "Suite 4", "Mumbai", "Maharashtra", "India", "400001",
+    "19.076090", "72.877426", "9876543210", "store@example.com",
+    "https://example.com", "https://maps.google.com/?q=...",
+    "Mon-Sat 9am-6pm", "Near city center", "Electronics,Clothing",
   ];
-
-  const csvContent = [CSV_TEMPLATE_HEADERS.join(","), exampleRow.join(",")].join("\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "retailers_import_template.csv";
-  a.click();
+  const csv = [CSV_TEMPLATE_HEADERS.join(","), exampleRow.join(",")].join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+  Object.assign(document.createElement("a"), { href: url, download: "retailers_import_template.csv" }).click();
   URL.revokeObjectURL(url);
 };
 
+const apiFetch = async (url, options = {}) => {
+  const res = await fetch(url, options);
+  return { res, ok: res.ok };
+};
 
+// ─── Common Components ────────────────────────────────────────────────────────
 
-const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [], countryOptions = [], }) => (
+/**
+ * Reusable toggle row used in the settings card.
+ */
+const ToggleRow = ({ label, description, enabled, onToggle, disabled, borderBottom }) => (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "18px 20px",
+      background: "#ffffff",
+      ...(borderBottom && { borderBottom: "1px solid #e1e3e5" }),
+    }}
+  >
+    <div>
+      <div style={{ fontSize: "14px", fontWeight: 600, color: "#111827", marginBottom: "4px" }}>
+        {label}
+      </div>
+      <div style={{ fontSize: "13px", color: "#6b7280" }}>{description}</div>
+    </div>
+    <button
+      onClick={onToggle}
+      disabled={disabled}
+      aria-label={`Toggle ${label}`}
+      style={{
+        position: "relative",
+        width: "46px",
+        height: "26px",
+        background: enabled ? "#008060" : "#d1d5db",
+        borderRadius: "999px",
+        border: "none",
+        cursor: disabled ? "not-allowed" : "pointer",
+        transition: "background 0.25s ease",
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: "3px",
+          left: enabled ? "23px" : "3px",
+          width: "20px",
+          height: "20px",
+          background: "#fff",
+          borderRadius: "50%",
+          transition: "left 0.25s ease",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+        }}
+      />
+    </button>
+  </div>
+);
+
+/**
+ * Confirm delete modal shared for single and bulk deletions.
+ */
+const DeleteModal = ({ context, onClose, onConfirm, isDeleting }) => (
+  <Modal
+    open={Boolean(context)}
+    onClose={onClose}
+    title="Delete Retailer"
+    primaryAction={{ content: "Delete", destructive: true, onAction: onConfirm, loading: isDeleting }}
+    secondaryActions={[{ content: "Cancel", onAction: onClose }]}
+  >
+    <Modal.Section>
+      <Text as="p">
+        Are you sure you want to delete{" "}
+        <Text as="span" fontWeight="semibold">
+          {context?.type === "single"
+            ? `${context.items[0]?.name}?`
+            : `${context?.items.length} retailers?`}
+        </Text>{" "}
+        This action will deactivate the retailer{context?.type !== "single" ? "s" : ""}.
+      </Text>
+    </Modal.Section>
+  </Modal>
+);
+
+// ─── Retailer Form ────────────────────────────────────────────────────────────
+
+const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [], countryOptions = [] }) => (
   <FormLayout>
     <Text variant="headingSm" as="h3">Basic Information</Text>
-
     <FormLayout.Group condensed>
       <TextField
         label="Retailer Name"
@@ -254,7 +269,6 @@ const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [], cou
         error={errors.name}
         autoComplete="organization"
       />
-
       <Select
         label="Type"
         options={RETAILER_TYPE_OPTIONS}
@@ -271,13 +285,9 @@ const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [], cou
         value={retailer.status}
         onChange={(v) => onChange("status", v)}
       />
-
       <Autocomplete
         allowMultiple
-        options={allCategories.map((c) => ({
-          value: String(c.id),
-          label: c.name,
-        }))}
+        options={allCategories.map((c) => ({ value: String(c.id), label: c.name }))}
         selected={retailer.category_ids || []}
         onSelect={(selected) => onChange("category_ids", selected)}
         textField={
@@ -287,17 +297,10 @@ const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [], cou
             autoComplete="off"
             error={errors.category_ids}
             value={
-              retailer.category_ids && retailer.category_ids.length > 0
-                ? retailer.category_ids
-                  .map((id) => {
-                    const cat = allCategories.find(
-                      (c) => String(c.id) === String(id)
-                    );
-                    return cat?.name;
-                  })
-                  .filter(Boolean)
-                  .join(", ")
-                : ""
+              (retailer.category_ids || [])
+                .map((id) => allCategories.find((c) => String(c.id) === String(id))?.name)
+                .filter(Boolean)
+                .join(", ")
             }
           />
         }
@@ -305,133 +308,40 @@ const RetailerForm = ({ retailer, onChange, errors = {}, allCategories = [], cou
     </FormLayout.Group>
 
     <Text variant="headingSm" as="h3">Location</Text>
-
-    <TextField
-      label="Address Line 1"
-      value={retailer.address_line1}
-      onChange={(v) => onChange("address_line1", v)}
-      autoComplete="address-line1"
-    />
-    <TextField
-      label="Address Line 2"
-      value={retailer.address_line2}
-      onChange={(v) => onChange("address_line2", v)}
-      autoComplete="address-line2"
-    />
-
+    <TextField label="Address Line 1" value={retailer.address_line1} onChange={(v) => onChange("address_line1", v)} error={errors.address_line1} autoComplete="address-line1" />
+    <TextField label="Address Line 2" value={retailer.address_line2} onChange={(v) => onChange("address_line2", v)} autoComplete="address-line2" />
     <FormLayout.Group condensed>
-      <TextField
-        label="City"
-        value={retailer.city}
-        onChange={(v) => onChange("city", v)}
-        error={errors.city}
-        autoComplete="address-level2"
-      />
-      <TextField
-        label="State"
-        value={retailer.state}
-        onChange={(v) => onChange("state", v)}
-        error={errors.state}
-        autoComplete="address-level1"
-      />
+      <TextField label="City" value={retailer.city} onChange={(v) => onChange("city", v)} error={errors.city} autoComplete="address-level2" />
+      <TextField label="State" value={retailer.state} onChange={(v) => onChange("state", v)} error={errors.state} autoComplete="address-level1" />
     </FormLayout.Group>
     <FormLayout.Group condensed>
-      <TextField
-        label="Postal Code"
-        value={retailer.postal_code}
-        onChange={(v) => onChange("postal_code", v)}
-        error={errors.postal_code}
-        autoComplete="postal-code"
-      />
-
-      <Select
-        label="Country"
-        options={countryOptions}
-        value={retailer.country}
-        onChange={(v) => onChange("country", v)}
-        error={errors.country}
-      />
+      <TextField label="Postal Code" value={retailer.postal_code} onChange={(v) => onChange("postal_code", v)} error={errors.postal_code} autoComplete="postal-code" />
+      <Select label="Country" options={countryOptions} value={retailer.country} onChange={(v) => onChange("country", v)} error={errors.country} />
     </FormLayout.Group>
+
     <Text variant="headingSm" as="h3">Coordinates</Text>
-
     <FormLayout.Group condensed>
-      <TextField
-        label="Latitude"
-        value={retailer.latitude}
-        onChange={(v) => onChange("latitude", v)}
-        error={errors.latitude}
-        autoComplete="off"
-        inputMode="decimal"
-        placeholder="-90 to 90"
-      />
-      <TextField
-        label="Longitude"
-        value={retailer.longitude}
-        onChange={(v) => onChange("longitude", v)}
-        error={errors.longitude}
-        autoComplete="off"
-        inputMode="decimal"
-        placeholder="-180 to 180"
-      />
+      <TextField label="Latitude" value={retailer.latitude} onChange={(v) => onChange("latitude", v)} error={errors.latitude} autoComplete="off" inputMode="decimal" placeholder="-90 to 90" />
+      <TextField label="Longitude" value={retailer.longitude} onChange={(v) => onChange("longitude", v)} error={errors.longitude} autoComplete="off" inputMode="decimal" placeholder="-180 to 180" />
     </FormLayout.Group>
 
     <Text variant="headingSm" as="h3">Contact</Text>
-
     <FormLayout.Group condensed>
-      <TextField
-        label="Phone"
-        value={retailer.phone}
-        onChange={(v) => onChange("phone", v)}
-        error={errors.phone}
-        autoComplete="tel"
-        type="tel"
-      />
-      <TextField
-        label="Email"
-        value={retailer.email}
-        onChange={(v) => onChange("email", v)}
-        autoComplete="email"
-        type="email"
-      />
+      <TextField label="Phone" value={retailer.phone} onChange={(v) => onChange("phone", v)} error={errors.phone} autoComplete="tel" type="tel" />
+      <TextField label="Email" value={retailer.email} onChange={(v) => onChange("email", v)} error={errors.email} autoComplete="email" type="email" />
     </FormLayout.Group>
 
     <Text variant="headingSm" as="h3">Links</Text>
-
-    <TextField
-      label="Website URL"
-      value={retailer.website_url}
-      onChange={(v) => onChange("website_url", v)}
-      autoComplete="url"
-      type="url"
-    />
-    <TextField
-      label="Google Maps Link"
-      value={retailer.google_maps_link}
-      onChange={(v) => onChange("google_maps_link", v)}
-      autoComplete="off"
-      type="url"
-      error={errors.google_maps_link}
-    />
+    <TextField label="Website URL" value={retailer.website_url} onChange={(v) => onChange("website_url", v)} autoComplete="url" type="url" />
+    <TextField label="Google Maps Link" value={retailer.google_maps_link} onChange={(v) => onChange("google_maps_link", v)} autoComplete="off" type="url" error={errors.google_maps_link} />
 
     <Text variant="headingSm" as="h3">Additional Info</Text>
-
-    <TextField
-      label="Opening Hours"
-      value={retailer.opening_hours}
-      onChange={(v) => onChange("opening_hours", v)}
-      autoComplete="off"
-      error={errors.opening_hours}
-      placeholder="e.g. Mon–Fri 9am–6pm"
-    />
-    <TextField
-      label="Notes"
-      value={retailer.notes}
-      onChange={(v) => onChange("notes", v)}
-      multiline={3}
-      autoComplete="off"
-    />
+    <TextField label="Opening Hours" value={retailer.opening_hours} onChange={(v) => onChange("opening_hours", v)} autoComplete="off" error={errors.opening_hours} placeholder="e.g. Mon–Fri 9am–6pm" />
+    <TextField label="Notes" value={retailer.notes} onChange={(v) => onChange("notes", v)} multiline={3} autoComplete="off" />
   </FormLayout>
 );
+
+// ─── Import CSV Modal ─────────────────────────────────────────────────────────
 
 const ImportCSVModal = ({ open, onClose, onSuccess }) => {
   const [file, setFile] = useState(null);
@@ -439,72 +349,38 @@ const ImportCSVModal = ({ open, onClose, onSuccess }) => {
   const [result, setResult] = useState(null);
   const [dropError, setDropError] = useState(null);
 
-  const resetState = () => {
-    setFile(null);
-    setResult(null);
-    setDropError(null);
-  };
+  const reset = () => { setFile(null); setResult(null); setDropError(null); };
+  const handleClose = () => { reset(); onClose(); };
 
-  const handleClose = () => {
-    resetState();
-    onClose();
-  };
-
-  const handleDropZoneDrop = useCallback((_dropFiles, acceptedFiles, rejectedFiles) => {
+  const handleDrop = useCallback((_dropped, accepted, rejected) => {
     setDropError(null);
     setResult(null);
-
-    if (rejectedFiles.length > 0) {
-      setDropError("Only .csv files are accepted. Please choose a valid CSV file.");
-      return;
-    }
-    if (acceptedFiles.length > 0) {
-      const picked = acceptedFiles[0];
-      if (picked.size > 5 * 1024 * 1024) {
-        setDropError("File exceeds 5 MB limit. Please split the CSV and try again.");
-        return;
-      }
-      setFile(picked);
-    }
+    if (rejected.length > 0) return setDropError("Only .csv files are accepted.");
+    const picked = accepted[0];
+    if (picked?.size > 5 * 1024 * 1024) return setDropError("File exceeds 5 MB limit.");
+    setFile(picked);
   }, []);
 
   const handleImport = async () => {
     if (!file) return;
     setIsUploading(true);
     setResult(null);
-
     try {
       const formData = new FormData();
       formData.append("file", file);
-
-      const res = await fetch("/app/retailers/import", {
-        method: "POST",
-        body: formData,
-      });
-
+      const res = await fetch("/app/retailers/import", { method: "POST", body: formData });
       const data = await res.json();
-
-      if (!res.ok) {
-        setResult({ apiError: data.error || `Server error: ${res.status}` });
-        return;
-      }
-
+      if (!res.ok) { setResult({ apiError: data.error || `Server error: ${res.status}` }); return; }
       setResult(data);
-
-      if (data.inserted > 0) {
-        onSuccess();
-      }
-    } catch (err) {
-      console.error("importCSV:", err);
+      if (data.inserted > 0) onSuccess();
+    } catch {
       setResult({ apiError: "Network error — please try again." });
     } finally {
       setIsUploading(false);
     }
   };
 
-  const successPct = result
-    ? Math.round((result.inserted / result.total) * 100)
-    : 0;
+  const successPct = result ? Math.round((result.inserted / result.total) * 100) : 0;
 
   return (
     <Modal
@@ -514,121 +390,69 @@ const ImportCSVModal = ({ open, onClose, onSuccess }) => {
       primaryAction={
         result
           ? { content: "Done", onAction: handleClose }
-          : {
-            content: "Import",
-            onAction: handleImport,
-            loading: isUploading,
-            disabled: !file || isUploading,
-          }
+          : { content: "Import", onAction: handleImport, loading: isUploading, disabled: !file || isUploading }
       }
       secondaryActions={
         result
-          ? [{ content: "Import Another", onAction: resetState }]
+          ? [{ content: "Import Another", onAction: reset }]
           : [{ content: "Cancel", onAction: handleClose }]
       }
       large
     >
       <Modal.Section>
         {!result && (
-          <div gap="400">
+          <BlockStack gap="400">
             <Banner tone="info">
-              <div gap="200">
-                <Text as="p" fontWeight="semibold">
-                  CSV format requirements
-                </Text>
-                <Text as="p">
-                  Your CSV must include a header row with these columns:
-                </Text>
-                <Box
-                  background="bg-surface-secondary"
-                  padding="200"
-                  borderRadius="200"
-                >
+              <BlockStack gap="200">
+                <Text as="p" fontWeight="semibold">CSV format requirements</Text>
+                <Text as="p">Your CSV must include a header row with these columns:</Text>
+                <Box background="bg-surface-secondary" padding="200" borderRadius="200">
                   <Text as="p" variant="bodySm" tone="subdued">
                     <code style={{ fontFamily: "monospace", fontSize: "12px" }}>
                       {CSV_TEMPLATE_HEADERS.join(", ")}
                     </code>
                   </Text>
                 </Box>
-              </div>
+              </BlockStack>
             </Banner>
 
-            <div align="end">
-              <Button
-                variant="plain"
-                icon={
-                  <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
-                    <path d="M13 8V2H7v6H2l8 8 8-8h-5zM0 18h20v2H0v-2z" />
-                  </svg>
-                }
-                onClick={downloadCSVTemplate}
-              >
+            <InlineStack align="end">
+              <Button variant="plain" onClick={downloadCSVTemplate}>
                 Download CSV Template
               </Button>
-            </div>
+            </InlineStack>
 
-            <DropZone
-              accept=".csv"
-              type="file"
-              onDrop={handleDropZoneDrop}
-              allowMultiple={false}
-              label="Upload CSV file"
-            >
+            <DropZone accept=".csv" type="file" onDrop={handleDrop} allowMultiple={false} label="Upload CSV file">
               {file ? (
                 <Box padding="400">
-                  <div gap="300" align="center" blockAlign="center">
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 8,
-                      background: "#f3f4f6",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <svg viewBox="0 0 24 24" width="22" height="22" fill="#6b7280">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
-                        <path d="M14 2v6h6M8 13h8M8 17h4" />
-                      </svg>
-                    </div>
-                    <div gap="050">
-                      <Text fontWeight="semibold">{file.name}</Text>
-                      <Text tone="subdued" variant="bodySm">
-                        {(file.size / 1024).toFixed(1)} KB
-                      </Text>
-                    </div>
-                    <Button
-                      variant="plain"
-                      tone="critical"
-                      onClick={(e) => { e.stopPropagation(); setFile(null); }}
-                    >
+                  <InlineStack gap="300" align="center" blockAlign="center">
+                    <Text fontWeight="semibold">{file.name}</Text>
+                    <Text tone="subdued" variant="bodySm">{(file.size / 1024).toFixed(1)} KB</Text>
+                    <Button variant="plain" tone="critical" onClick={(e) => { e.stopPropagation(); setFile(null); }}>
                       Remove
                     </Button>
-                  </div>
+                  </InlineStack>
                 </Box>
               ) : (
-                <DropZone.FileUpload
-                  actionTitle="Choose CSV file"
-                  actionHint="or drag and drop here. Max 5 MB."
-                />
+                <DropZone.FileUpload actionTitle="Choose CSV file" actionHint="or drag and drop here. Max 5 MB." />
               )}
             </DropZone>
 
-            {dropError && (
-              <Banner tone="critical">
-                <Text as="p">{dropError}</Text>
-              </Banner>
-            )}
+            {dropError && <Banner tone="critical"><Text as="p">{dropError}</Text></Banner>}
 
             {isUploading && (
               <Box paddingBlockStart="200">
-                <div gap="200">
+                <BlockStack gap="200">
                   <Text as="p" tone="subdued">Uploading and processing…</Text>
                   <ProgressBar progress={50} animated />
-                </div>
+                </BlockStack>
               </Box>
             )}
-          </div>
+          </BlockStack>
         )}
 
         {result && (
-          <div gap="400">
+          <BlockStack gap="400">
             {result.apiError ? (
               <Banner tone="critical" title="Import failed">
                 <Text as="p">{result.apiError}</Text>
@@ -641,31 +465,24 @@ const ImportCSVModal = ({ open, onClose, onSuccess }) => {
                     result.failed === 0
                       ? "Import completed successfully"
                       : result.inserted > 0
-                        ? "Import completed with some errors"
-                        : "Import failed — no rows were inserted"
+                      ? "Import completed with some errors"
+                      : "Import failed — no rows were inserted"
                   }
                 >
-                  <div gap="100">
+                  <BlockStack gap="100">
                     <Text as="p">Total rows in CSV: <strong>{result.total}</strong></Text>
                     <Text as="p">Successfully inserted: <strong>{result.inserted}</strong></Text>
                     <Text as="p">Failed / skipped: <strong>{result.failed}</strong></Text>
-                  </div>
+                  </BlockStack>
                 </Banner>
 
                 {result.inserted > 0 && (
-                  <ProgressBar
-                    progress={successPct}
-                    tone={result.failed === 0 ? "success" : "highlight"}
-                  />
+                  <ProgressBar progress={successPct} tone={result.failed === 0 ? "success" : "highlight"} />
                 )}
 
                 {result.errors?.length > 0 && (
-                  <Box
-                    background="bg-surface-secondary"
-                    padding="300"
-                    borderRadius="200"
-                  >
-                    <div gap="200">
+                  <Box background="bg-surface-secondary" padding="300" borderRadius="200">
+                    <BlockStack gap="200">
                       <Text fontWeight="semibold" tone="critical">
                         Row errors ({result.errors.length}):
                       </Text>
@@ -674,32 +491,35 @@ const ImportCSVModal = ({ open, onClose, onSuccess }) => {
                           {result.errors.map((e, idx) => (
                             <List.Item key={idx}>
                               <Text variant="bodySm">
-                                <Text as="span" fontWeight="semibold">Row {e.row}:</Text>{" "}
-                                {e.error}
+                                <Text as="span" fontWeight="semibold">Row {e.row}:</Text> {e.error}
                               </Text>
                             </List.Item>
                           ))}
                         </List>
                       </div>
-                    </div>
+                    </BlockStack>
                   </Box>
                 )}
               </>
             )}
-          </div>
+          </BlockStack>
         )}
       </Modal.Section>
     </Modal>
   );
 };
 
+// ─── Retailers Manager (Main) ─────────────────────────────────────────────────
 
 const RetailersManager = () => {
   const [retailers, setRetailers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [allCategories, setAllCategories] = useState([]);
+  const [countries, setCountries] = useState([]);
   const [filterEnabled, setFilterEnabled] = useState(false);
+  const [showGlobalRetailers, setShowGlobalRetailers] = useState(false);
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingRetailer, setEditingRetailer] = useState(null);
@@ -708,287 +528,198 @@ const RetailersManager = () => {
   const [newRetailerErrors, setNewRetailerErrors] = useState({});
   const [editRetailerErrors, setEditRetailerErrors] = useState({});
   const [isCreating, setIsCreating] = useState(false);
-  const [countries, setCountries] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showGlobalRetailers, setShowGlobalRetailers] =
-    useState(false);
-
-  const [isUpdatingSettings, setIsUpdatingSettings] =
-    useState(false);
-  const [toast, setToast] = useState(null);
   const [searchValue, setSearchValue] = useState("");
-  const showToast = (message, isError = false) => setToast({ message, error: isError });
+  const [toast, setToast] = useState({ active: false, message: "", error: false });
+
+  const showToast = useCallback((message, isError = false) => {
+    setToast({ active: true, message, error: isError });
+  }, []);
+
   const totalPages = Math.max(1, Math.ceil(retailers.length / PAGE_SIZE));
   const paginatedRetailers = useMemo(
     () => retailers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [page, retailers]
   );
 
-  useEffect(() => {
-    setPage(1);
-  }, [retailers.length]);
-
-  const countryOptions = [
+  const countryOptions = useMemo(() => [
     { label: "Select country", value: "" },
-    ...countries.map((c) => ({
-      label: c.name,
-      value: c.name,
-    })),
-  ];
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch("/app/settings");
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-          throw new Error(
-            data.error || "Failed to fetch settings"
-          );
-        }
-
-        setFilterEnabled(
-          data.data?.filter_enabled ?? false
-        );
-
-        setShowGlobalRetailers(
-          data.data?.show_global_retailers ?? false
-        );
-
-      } catch (err) {
-        console.error(err);
-        showToast(
-          err.message || "Failed to fetch settings",
-          true
-        );
-      }
-    };
-
-    fetchSettings();
-  }, []);
+    ...countries.map((c) => ({ label: c.name, value: c.name })),
+  ], [countries]);
 
   const { selectedResources, allResourcesSelected, handleSelectionChange } =
     useIndexResourceState(paginatedRetailers);
 
-  const fetchCategories = async () => {
+  // ── Data fetchers ──
+
+  const fetchData = useCallback(async (url, setter, errorMsg) => {
     try {
-      const res = await fetch("/app/categories");
-      const data = await res.json();
-      if (data.success) setAllCategories(data.data);
-    } catch (err) {
-      console.error(err);
+      const res = await fetch(url);
+      const data = await handleApiResponse(res, showToast);
+      if (data) setter(data.data);
+    } catch {
+      showToast(errorMsg, true);
     }
-  };
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCountries = async () => {
-    try {
-      const res = await fetch("/app/countries");
-      const data = await res.json();
-      if (data.success) {
-        setCountries(data.data);
-      }
-    } catch (err) {
-      console.error("fetchCountries:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchCountries();
-  }, []);
+  }, [showToast]);
 
   const fetchRetailers = useCallback(async () => {
+    setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (searchValue.trim()) {
-        params.append("search", searchValue);
-      }
-      setLoading(true);
-      const res = await fetch(`/app/retailers?${params.toString()}`);
-      const data = await res.json();
-      if (data.success) setRetailers(data.data);
-    } catch (err) {
-      console.error("fetchRetailers:", err);
-      showToast(err, true);
+      if (searchValue.trim()) params.append("search", searchValue);
+      const res = await fetch(`/app/retailers?${params}`);
+      const data = await handleApiResponse(res, showToast);
+      if (data) setRetailers(data.data);
+    } catch {
+      showToast("Failed to fetch retailers", true);
     } finally {
       setLoading(false);
     }
-  }, [searchValue]);
+  }, [searchValue, showToast]);
+
+  useEffect(() => { fetchData("/app/categories", setAllCategories, "Failed to fetch categories"); }, [fetchData]);
+  useEffect(() => { fetchData("/app/countries", setCountries, "Failed to fetch countries"); }, [fetchData]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchRetailers();
-    }, 500);
+    (async () => {
+      try {
+        const res = await fetch("/app/settings");
+        const data = await handleApiResponse(res, showToast);
+        if (!data) return;
+        setFilterEnabled(data.data?.filter_enabled ?? false);
+        setShowGlobalRetailers(data.data?.show_global_retailers ?? false);
+      } catch {
+        showToast("Failed to fetch settings", true);
+      }
+    })();
+  }, [showToast]);
 
+  useEffect(() => {
+    const timer = setTimeout(fetchRetailers, 500);
     return () => clearTimeout(timer);
   }, [fetchRetailers]);
 
+  useEffect(() => { setPage(1); }, [retailers.length]);
+
+  // ── Settings toggle (merged) ──
+
+  const updateSetting = useCallback(async (filterVal, globalVal, successMsg) => {
+    setIsUpdatingSettings(true);
+    try {
+      const res = await fetch("/app/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filter_enabled: filterVal, show_global_retailers: globalVal }),
+      });
+      const data = await handleApiResponse(res, showToast, successMsg);
+      if (!data) return false;
+      return true;
+    } catch (err) {
+      showToast(err.message || "Failed to update settings", true);
+      return false;
+    } finally {
+      setIsUpdatingSettings(false);
+    }
+  }, [showToast]);
+
+  const handleFilterToggle = async () => {
+    const next = !filterEnabled;
+    const ok = await updateSetting(next, showGlobalRetailers, `Filter ${next ? "enabled" : "disabled"} successfully`);
+    if (ok) setFilterEnabled(next);
+  };
+
+  const handleGlobalToggle = async () => {
+    const next = !showGlobalRetailers;
+    const ok = await updateSetting(filterEnabled, next, next ? "Global retailers enabled" : "Country-wise retailers enabled");
+    if (ok) setShowGlobalRetailers(next);
+  };
+
+  // ── CRUD ──
+
   const handleCreate = async () => {
     const errors = validateRetailerData(newRetailer);
-    if (Object.keys(errors).length > 0) { setNewRetailerErrors(errors); return; }
+    if (Object.keys(errors).length) { setNewRetailerErrors(errors); return; }
+    setIsCreating(true);
     try {
-      setIsCreating(true);
       const res = await fetch("/app/retailers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newRetailer),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
+      const data = await handleApiResponse(res, showToast, "Retailer created successfully");
+      if (!data) return;
       await fetchRetailers();
       setIsCreateOpen(false);
       setNewRetailer(EMPTY_RETAILER);
       setNewRetailerErrors({});
-      showToast("Retailer created successfully.");
-    } catch (err) {
-      console.error("createRetailer:", err);
-      showToast("Failed to create retailer.", true);
+    } catch {
+      showToast("Failed to create retailer", true);
     } finally {
       setIsCreating(false);
     }
   };
 
-  const handleCloseCreate = () => {
-    setIsCreateOpen(false);
-    setNewRetailer(EMPTY_RETAILER);
-    setNewRetailerErrors({});
-  };
-
   const handleSave = async () => {
     const errors = validateRetailerData(editingRetailer);
-    if (Object.keys(errors).length > 0) { setEditRetailerErrors(errors); return; }
+    if (Object.keys(errors).length) { setEditRetailerErrors(errors); return; }
+    setIsSaving(true);
     try {
-      setIsSaving(true);
       const res = await fetch(`/app/retailers/${editingRetailer.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editingRetailer),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
+      const data = await handleApiResponse(res, showToast, "Retailer updated successfully");
+      if (!data) return;
       await fetchRetailers();
       setEditingRetailer(null);
       setEditRetailerErrors({});
-      showToast("Retailer updated successfully.");
-    } catch (err) {
-      console.error("saveRetailer:", err);
-      showToast("Failed to update retailer.", true);
+    } catch {
+      showToast("Failed to update retailer", true);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleCloseEdit = () => { setEditingRetailer(null); setEditRetailerErrors({}); };
-
-  const handleToggle = async (value) => {
-    try {
-      setIsUpdatingSettings(true);
-      const res = await fetch("/app/settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          filter_enabled: value,
-          show_global_retailers: showGlobalRetailers,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(
-          data.error || "Failed to update settings"
-        );
-      }
-
-      setFilterEnabled(value);
-
-      showToast(
-        `Filter ${value ? "enabled" : "disabled"} successfully`
-      );
-
-    } catch (err) {
-      showToast(
-        err.message || "Failed to update settings",
-        true
-      );
-
-    } finally {
-      setIsUpdatingSettings(false);
-    }
-  };
-
-  const handleGlobalToggle = async (value) => {
-    try {
-      setIsUpdatingSettings(true);
-      const res = await fetch("/app/settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          filter_enabled: filterEnabled,
-          show_global_retailers: value,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(
-          data.error || "Failed to update setting"
-        );
-      }
-      setShowGlobalRetailers(value);
-      showToast(
-        value
-          ? "Global retailers enabled successfully"
-          : "Country-wise retailers enabled successfully"
-      );
-    } catch (err) {
-      showToast(
-        err.message || "Failed to update setting",
-        true
-      );
-    } finally {
-      setIsUpdatingSettings(false);
-    }
-  };
-
   const handleConfirmDelete = async () => {
+    setIsDeleting(true);
     try {
-      setIsDeleting(true);
-
       if (deleteContext.type === "single") {
-        const id = deleteContext.items[0].id;
-        await fetch(`/app/retailers/${id}`, { method: "DELETE" });
+        const res = await fetch(`/app/retailers/${deleteContext.items[0].id}`, { method: "DELETE" });
+        await handleApiResponse(res, showToast, "Retailer deleted successfully");
       } else {
         await Promise.all(
           deleteContext.items.map((id) =>
-            fetch(`/app/retailers/${id}`, { method: "DELETE" })
+            fetch(`/app/retailers/${id}`, { method: "DELETE" }).then((r) => handleApiResponse(r, showToast))
           )
         );
       }
-
       await fetchRetailers();
-      showToast("Deleted successfully");
       setDeleteContext(null);
       handleSelectionChange([]);
-    } catch (err) {
-      console.error("delete error:", err);
-      showToast("Failed to delete", true);
+    } catch {
+      showToast("Failed to delete retailer", true);
     } finally {
       setIsDeleting(false);
     }
   };
 
+  const openEditModal = (r) =>
+    setEditingRetailer({
+      ...r,
+      country: r.country?.trim() ?? "",
+      category_ids: r.categories
+        ? r.categories.split(",").map((name) => {
+            const cat = allCategories.find(
+              (c) => c.name.trim().toLowerCase() === name.trim().toLowerCase()
+            );
+            return cat ? String(cat.id) : null;
+          }).filter(Boolean)
+        : [],
+    });
+
+  // ── Row markup ──
 
   const rowMarkup = paginatedRetailers.map((r, index) => (
     <IndexTable.Row
@@ -1017,240 +748,93 @@ const RetailersManager = () => {
       <IndexTable.Cell>
         {r.google_maps_link ? (
           <a href={r.google_maps_link} target="_blank" rel="noopener noreferrer">
-            {r.google_maps_link.length > 30
-              ? r.google_maps_link.slice(0, 30) + "..."
-              : r.google_maps_link}
+            {r.google_maps_link.length > 30 ? `${r.google_maps_link.slice(0, 30)}…` : r.google_maps_link}
           </a>
-        ) : (
-          "—"
-        )}
+        ) : "—"}
       </IndexTable.Cell>
       <IndexTable.Cell>{r.opening_hours || "—"}</IndexTable.Cell>
-      <IndexTable.Cell>
-        {r.categories ? r.categories : "—"}
-      </IndexTable.Cell>
+      <IndexTable.Cell>{r.categories || "—"}</IndexTable.Cell>
       <IndexTable.Cell>{r.notes || "—"}</IndexTable.Cell>
       <IndexTable.Cell>
         <ButtonGroup variant="segmented">
-          <Button size="slim" onClick={() => setEditingRetailer({
-            ...r,
-            country: r.country ? r.country.trim() : "",
-            category_ids: r.categories
-              ? r.categories.split(",").map((name) => {
-                const cat = allCategories.find(
-                  (c) => c.name.trim().toLowerCase() === name.trim().toLowerCase()
-                );
-                return cat ? String(cat.id) : null;
-              }).filter(Boolean)
-              : []
-          })}>Edit</Button>
-          <Button size="slim" tone="critical" onClick={() =>
-            setDeleteContext({ type: "single", items: [r] })
-          }>Delete</Button>
+          <Button size="slim" onClick={() => openEditModal(r)}>Edit</Button>
+          <Button size="slim" tone="critical" onClick={() => setDeleteContext({ type: "single", items: [r] })}>
+            Delete
+          </Button>
         </ButtonGroup>
       </IndexTable.Cell>
     </IndexTable.Row>
   ));
+
+  // ── Render ──
+
   return (
     <Page
       title="Retailers"
       subtitle="Manage retailer locations for your Shopify extension app."
       fullWidth
       primaryAction={{ content: "Add Retailer", onAction: () => setIsCreateOpen(true) }}
-      secondaryActions={[
-        { content: "Import CSV", onAction: () => setIsImportOpen(true) },
-      ]}
-
+      secondaryActions={[{ content: "Import CSV", onAction: () => setIsImportOpen(true) }]}
       titleMetadata={<Badge tone="info">{`${retailers.length} total`}</Badge>}
     >
-      <div style={{ marginBottom: "20px" }}>
+      {/* Settings Card */}
+      <Box paddingBlockEnd="500">
         <Card padding="0">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "18px 20px",
-              borderBottom: "1px solid #e1e3e5",
-              background: "#ffffff",
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  color: "#111827",
-                  marginBottom: "4px",
-                }}
-              >
-                Global Retailers
-              </div>
-
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "#6b7280",
-                }}
-              >
-                Show retailers from all countries on storefront
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleGlobalToggle(!showGlobalRetailers)}
-              disabled={isUpdatingSettings}
-              style={{
-                position: "relative",
-                width: "46px",
-                height: "26px",
-                background: showGlobalRetailers ? "#008060" : "#d1d5db",
-                borderRadius: "999px",
-                border: "none",
-                cursor: "pointer",
-                transition: "0.25s ease",
-                flexShrink: 0,
-              }}
-            >
-              <span
-                style={{
-                  position: "absolute",
-                  top: "3px",
-                  left: showGlobalRetailers ? "23px" : "3px",
-                  width: "20px",
-                  height: "20px",
-                  background: "#fff",
-                  borderRadius: "50%",
-                  transition: "0.25s ease",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
-                }}
-              />
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "18px 20px",
-              background: "#ffffff",
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  color: "#111827",
-                  marginBottom: "4px",
-                }}
-              >
-                Filter Settings
-              </div>
-
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "#6b7280",
-                }}
-              >
-                Enable category and location filters on storefront
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleToggle(!filterEnabled)}
-              disabled={isUpdatingSettings}
-              style={{
-                position: "relative",
-                width: "46px",
-                height: "26px",
-                background: filterEnabled ? "#008060" : "#d1d5db",
-                borderRadius: "999px",
-                border: "none",
-                cursor: "pointer",
-                transition: "0.25s ease",
-                flexShrink: 0,
-              }}
-            >
-              <span
-                style={{
-                  position: "absolute",
-                  top: "3px",
-                  left: filterEnabled ? "23px" : "3px",
-                  width: "20px",
-                  height: "20px",
-                  background: "#fff",
-                  borderRadius: "50%",
-                  transition: "0.25s ease",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
-                }}
-              />
-            </button>
-          </div>
+          <ToggleRow
+            label="Global Retailers"
+            description="Show retailers from all countries on storefront"
+            enabled={showGlobalRetailers}
+            onToggle={handleGlobalToggle}
+            disabled={isUpdatingSettings}
+            borderBottom
+          />
+          <ToggleRow
+            label="Filter Settings"
+            description="Enable category and location filters on storefront"
+            enabled={filterEnabled}
+            onToggle={handleFilterToggle}
+            disabled={isUpdatingSettings}
+          />
         </Card>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      </Box>
+
+      {/* Table Card */}
+      <BlockStack gap="400">
         {selectedResources.length > 0 && (
           <Banner tone="info">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <InlineStack align="space-between">
               <Text as="p">
                 {selectedResources.length} retailer{selectedResources.length > 1 ? "s" : ""} selected
               </Text>
-
-              <Button tone="critical" onClick={() =>
-                setDeleteContext({
-                  type: "bulk",
-                  items: selectedResources,
-                })
-              }>
+              <Button tone="critical" onClick={() => setDeleteContext({ type: "bulk", items: selectedResources })}>
                 Delete Selected
               </Button>
-            </div>
+            </InlineStack>
           </Banner>
         )}
 
         <Card padding="0">
-          <div
-            style={{
-              padding: "16px",
-              borderBottom: "1px solid #e1e3e5",
-              background: "#f9fafb",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-              }}
-            >
-              <div
-                style={{
-                  flex: 1,
-                }}
-              >
-                <TextField
-                  label=""
-                  value={searchValue}
-                  onChange={setSearchValue}
-                  placeholder="Search retailers..."
-                  autoComplete="off"
-                  clearButton
-                  onClearButtonClick={() => setSearchValue("")}
-                />
-              </div>
-            </div>
-          </div>
+          <Box padding="400" background="bg-surface-secondary" borderBlockEndWidth="025" borderColor="border">
+            <TextField
+              label=""
+              value={searchValue}
+              onChange={setSearchValue}
+              placeholder="Search retailers..."
+              autoComplete="off"
+              clearButton
+              onClearButtonClick={() => setSearchValue("")}
+            />
+          </Box>
+
           {loading ? (
-            <div style={{ padding: "40px", textAlign: "center" }}>
+            <Box padding="1600" as="div" style={{ textAlign: "center" }}>
               <Spinner accessibilityLabel="Loading retailers" size="large" />
-            </div>
+            </Box>
           ) : retailers.length === 0 ? (
             <EmptyState
-              heading="No retailers Found"
+              heading="No retailers found"
               image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-            >
-            </EmptyState>
+            />
           ) : (
             <>
               <IndexTable
@@ -1264,35 +848,30 @@ const RetailersManager = () => {
               </IndexTable>
 
               <Box padding="400">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "10px" }}>
-                  <Text as="p" tone="subdued">
-                    Page {page} of {totalPages}
-                  </Text>
+                <InlineStack align="space-between">
+                  <Text as="p" tone="subdued">Page {page} of {totalPages}</Text>
                   <Pagination
                     hasPrevious={page > 1}
                     onPrevious={() => setPage((p) => Math.max(1, p - 1))}
                     hasNext={page < totalPages}
                     onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
                   />
-                </div>
+                </InlineStack>
               </Box>
             </>
           )}
         </Card>
-      </div>
+      </BlockStack>
 
-      <ImportCSVModal
-        open={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
-        onSuccess={fetchRetailers}
-      />
+      {/* Modals */}
+      <ImportCSVModal open={isImportOpen} onClose={() => setIsImportOpen(false)} onSuccess={fetchRetailers} />
 
       <Modal
         open={isCreateOpen}
-        onClose={handleCloseCreate}
+        onClose={() => { setIsCreateOpen(false); setNewRetailer(EMPTY_RETAILER); setNewRetailerErrors({}); }}
         title="Add Retailer"
         primaryAction={{ content: "Create", onAction: handleCreate, loading: isCreating }}
-        secondaryActions={[{ content: "Cancel", onAction: handleCloseCreate }]}
+        secondaryActions={[{ content: "Cancel", onAction: () => { setIsCreateOpen(false); setNewRetailer(EMPTY_RETAILER); setNewRetailerErrors({}); } }]}
         large
       >
         <Modal.Section>
@@ -1306,18 +885,17 @@ const RetailersManager = () => {
         </Modal.Section>
       </Modal>
 
-
       <Modal
         open={Boolean(editingRetailer)}
-        onClose={handleCloseEdit}
+        onClose={() => { setEditingRetailer(null); setEditRetailerErrors({}); }}
         title={editingRetailer ? `Edit: ${editingRetailer.name}` : "Edit Retailer"}
         primaryAction={{ content: "Save", onAction: handleSave, loading: isSaving }}
-        secondaryActions={[{ content: "Cancel", onAction: handleCloseEdit }]}
+        secondaryActions={[{ content: "Cancel", onAction: () => { setEditingRetailer(null); setEditRetailerErrors({}); } }]}
         large
       >
         <Modal.Section>
           {editingRetailer && (
-            <div gap="400">
+            <BlockStack gap="400">
               <TextField label="Retailer ID" value={String(editingRetailer.id)} disabled autoComplete="off" />
               <RetailerForm
                 retailer={editingRetailer}
@@ -1326,47 +904,24 @@ const RetailersManager = () => {
                 allCategories={allCategories}
                 countryOptions={countryOptions}
               />
-            </div>
+            </BlockStack>
           )}
         </Modal.Section>
       </Modal>
 
-      <Modal
-        open={Boolean(deleteContext)}
+      <DeleteModal
+        context={deleteContext}
         onClose={() => setDeleteContext(null)}
-        title="Delete Retailer"
-        primaryAction={{
-          content: "Delete",
-          destructive: true,
-          onAction: handleConfirmDelete,
-          loading: isDeleting,
-        }}
-        secondaryActions={[
-          { content: "Cancel", onAction: () => setDeleteContext(null) },
-        ]}
-      >
-        <Modal.Section>
-          {deleteContext?.type === "single" ? (
-            <Text as="p">
-              Are you sure you want to delete{" "}
-              <Text as="span" fontWeight="semibold">
-                {deleteContext.items[0]?.name} ? This activity deactive the Retailer.
-              </Text>
-            </Text>
-          ) : (
-            <Text as="p">
-              Are you sure you want to delete{" "}
-              <Text as="span" fontWeight="semibold">
-                {deleteContext?.items.length} retailers ? This activity deactive the Retailers.
-              </Text>
-            </Text>
-          )}
-        </Modal.Section>
-      </Modal>
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+      />
 
-      {toast && (
-        <Toast content={toast.message} error={toast.error} onDismiss={() => setToast(null)} />
-      )}
+      <CommonToast
+        active={toast.active}
+        message={toast.message}
+        error={toast.error}
+        onDismiss={() => setToast({ active: false, message: "", error: false })}
+      />
     </Page>
   );
 };

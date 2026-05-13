@@ -445,38 +445,6 @@ export async function getRetailerById(req, res) {
   }
 }
 
-export async function toggleRetailerStatus(req, res) {
-  try {
-    const store_id = await getShopIdFromSession(res);
-    const { id } = req.params;
-
-    const result = await pool.query(
-      `UPDATE retailers
-       SET status = CASE 
-         WHEN status = 'active' THEN 'inactive'
-         ELSE 'active'
-       END
-       WHERE id = $1 AND store_id = $2
-       RETURNING status`,
-      [id, store_id]
-    );
-
-    if (!result.rows.length) {
-      return res.status(403).json({ error: "Unauthorized" });
-    }
-
-    res.json({
-      success: true,
-      status: result.rows[0].status
-    });
-
-  } catch (err) {
-    res.status(err.message === "Unauthorized" ? 401 : 500).json({
-      error: err.message
-    });
-  }
-}
-
 const normalizeRetailerType = (val) => {
   if (!val || String(val).trim() === "") return "offline";
   const key = String(val).trim().toLowerCase();

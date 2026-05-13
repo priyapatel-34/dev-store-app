@@ -90,6 +90,7 @@
     padding: 5px 10px;
     min-height: 42px;
     flex: 1;
+    max-width: 50%;
     font-family: inherit;
     font-size: 14px;
     font-weight: 500;
@@ -129,6 +130,7 @@
 .dealer-locations-section .icon-list li a {
     color: inherit;
     font: inherit;
+    word-break: break-all;
 }
 
 .dealer-locations-section .dealer-location-block {
@@ -187,7 +189,7 @@
 }
 
 .dealer-locations-section .right-block .map {
-    height: 800px;
+    height: 100% !important;
     width: 100%;
 }
 
@@ -353,6 +355,8 @@
     z-index: 10;
     font-size: 14px;
     font-weight: 500;
+    max-height: 400px;
+    overflow-y: auto;
 }
 
 .dealer-locations-section .dropdown-list div {
@@ -401,13 +405,78 @@
 }
 
 .dealer-locations-section .no-retailers-found {
-  background: #000;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 40px 24px;
-  text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 24px 0;
+    text-align: center;
+    max-width: 393px;
+    margin: 0 auto;
+}
+
+.dealer-location-block .gm-style .gm-style-iw-c {
+    padding: 12px 14px !important;
+    border-radius: 8px !important;
+    box-shadow: 0px 12px 32px 0px #00000026 !important;
+}
+
+.dealer-location-block .gm-style-iw-ch {
+    display: none;
+}
+
+.dealer-location-block .gm-style .custom-footer-block {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.dealer-location-block .gm-style .gm-style-iw-d {
+    overflow: auto !important;
+}
+
+.dealer-location-block .gm-ui-hover-effect {
+    position: absolute !important;
+    right: 16px;
+    top: 16px;
+    height: 16px !important;
+    width: 16px !important;
+}
+
+.dealer-location-block .gm-ui-hover-effect>span {
+    height: 16px !important;
+    width: 16px !important;
+    margin: 0 !important;
+}
+
+.dealer-location-block .gm-style .btn {
+    height: 34px;
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
+}
+
+.dealer-location-block .no-retailers-found p {
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 1.4;
+    color: #818183;
+    max-width: 322px;
+    margin: 0 auto;
+}
+
+.dealer-location-block .no-retailers-found h3 {
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1.25;
+    margin-bottom: 4px;
+}
+
+.dealer-location-block .no-retailers-found .empty-icon {
+    width: 45px;
+    margin-bottom: 24px;
 }
 
 /* ============================================================
@@ -540,6 +609,7 @@
     animation: spin 1s linear infinite;
 }
 
+
 @keyframes spin {
     100% {
         transform: rotate(360deg);
@@ -628,6 +698,14 @@
     .authorized-locator-page .content-sections {
         padding: 60px var(--gutter);
     }
+
+    .dealer-locations-section .right-block .map {
+        aspect-ratio: 1 / 1;
+    }
+
+    .dealer-locations-section .dropdown-list {
+        max-height: 350px;
+    }
 }
 
 @media (max-width: 667px) {
@@ -671,6 +749,12 @@
     .dealer-locations-section .dropdown.category,
     .dealer-locations-section .dropdown:not(.input-box) {
         flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 375px) {
+    .dealer-locations-section .btn-wrap .btn {
         max-width: 100%;
     }
 }

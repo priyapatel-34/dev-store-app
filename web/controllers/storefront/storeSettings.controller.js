@@ -4,8 +4,6 @@ import { pool } from "../../db/db.js";
     try {
   
       const { shop } = req.query;
-
-      console.log("req.query", req.query);
   
       if (!shop) {
         return res.status(400).json({
