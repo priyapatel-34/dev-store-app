@@ -59,7 +59,7 @@ async function getShopIdFromSession(res) {
 export async function getRetailers(req, res) {
   try {
     const store_id = await getShopIdFromSession(res);
-    const { country, category, search } = req.query;
+    const { country, category, search, lat, lng, radius } = req.query;
     const cleanSearch = search
       ? search.trim().replace(/\s+/g, " ")
       : null;
@@ -173,14 +173,59 @@ export async function getRetailers(req, res) {
       country ? `%${country}%` : null,
       category ? `%${category}%` : null,
       cleanSearch,
-    ];
+    ];  
 
     const result = await pool.query(query, values);
+    let retailers = result.rows;
 
+    if (lat && lng && radius) {
+      const userLat = parseFloat(lat);
+      const userLng = parseFloat(lng);
+      const radiusKm = parseFloat(radius);
+    
+      const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371;
+    
+        const toRad = (deg) => deg * (Math.PI / 180);
+    
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+    
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(lat1)) *
+          Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+    
+        return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+      };
+      retailers = retailers
+      .filter(
+        (retailer) =>
+          retailer.latitude &&
+          retailer.longitude
+      )
+      .map((retailer) => {
+          const distance = calculateDistance(
+            userLat,
+            userLng,
+            parseFloat(retailer.latitude),
+            parseFloat(retailer.longitude)
+          );
+    
+          return {
+            ...retailer,
+            distance: Number(distance.toFixed(2)),
+          };
+        })
+        .filter((retailer) => retailer.distance <= radiusKm)
+        .sort((a, b) => a.distance - b.distance);
+    }
     return res.json({
       success: true,
-      count: result.rows.length,
-      data: result.rows,
+      count: retailers.length,
+      data: retailers,
     });
 
   } catch (err) {

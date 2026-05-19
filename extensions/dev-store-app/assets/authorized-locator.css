@@ -26,6 +26,10 @@
     gap: 24px;
 }
 
+.authorized-locator-page .content-sections .rich-text-section p:last-child {
+    margin-bottom: 2px;
+}
+
 .authorized-locator-page .section-wrapper {
     margin: 0;
     font-family: "Sennheiser Neue";
@@ -49,11 +53,36 @@
 
 .dealer-locations-section .custom-location-card .title-block {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 4px;
     justify-content: space-between;
     margin-bottom: 12px;
+}
+
+.dealer-locations-section .icon-btn-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dealer-locations-section .icon-btn {
+    height: 26px;
+    width: 26px;
+    border-radius: 4px;
+    background-color: #037cc2;
+    border: none;
+    outline: none;
+    text-decoration: none;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dealer-locations-section .icon-btn img {
+    width: 16px !important;
+    height: auto !important;
 }
 
 .dealer-locations-section .custom-location-card .title-block h4 {
@@ -181,6 +210,7 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
+    scrollbar-width: thin;
 }
 
 .dealer-locations-section .right-block {
@@ -286,11 +316,6 @@
 
 .dealer-locations-section .right-wrap.no-filters .dropdowns-wrap {
     display: none;
-}
-
-.dealer-locations-section .dropdown.category {
-    flex: 0 0 62%;
-    max-width: 62%;
 }
 
 .dealer-locations-section .dropdown:not(.input-box) {
@@ -417,6 +442,18 @@
     margin: 0 auto;
 }
 
+.dealer-location-block .gm-style .upper-wrap>*:last-child {
+    padding-right: 60px;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+}
+
+.dealer-location-block .gm-style .upper-wrap .icon-btn {
+    height: 24px;
+    width: 24px;
+}
+
 .dealer-location-block .gm-style .gm-style-iw-c {
     padding: 12px 14px !important;
     border-radius: 8px !important;
@@ -432,6 +469,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    position: absolute;
+    bottom: 19px;
+    right: 16px;
 }
 
 .dealer-location-block .gm-style .gm-style-iw-d {
@@ -440,8 +480,8 @@
 
 .dealer-location-block .gm-ui-hover-effect {
     position: absolute !important;
-    right: 16px;
-    top: 16px;
+    right: 10px;
+    top: 10px;
     height: 16px !important;
     width: 16px !important;
 }
@@ -466,17 +506,17 @@
     right: 24px !important;
     top: auto !important;
     left: auto !important;
-  
+
     display: flex;
     flex-direction: column;
     gap: 10px;
-  
+
     z-index: 999999;
     pointer-events: none;
-  }
-  
-  /* TOAST */
-  .toast {
+}
+
+/* TOAST */
+.toast {
     pointer-events: auto;
     min-width: 280px;
     max-width: 380px;
@@ -488,31 +528,31 @@
     color: #1f2937;
     border-radius: 12px;
     box-shadow:
-      0 10px 25px -5px rgba(0,0,0,.15),
-      0 4px 10px -5px rgba(0,0,0,.08);
+        0 10px 25px -5px rgba(0, 0, 0, .15),
+        0 4px 10px -5px rgba(0, 0, 0, .08);
     border-left: 4px solid;
     font: 500 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     opacity: 0;
     transform: translateX(120%);
     transition:
-      opacity .25s ease,
-      transform .35s cubic-bezier(.21,1.02,.73,1);
+        opacity .25s ease,
+        transform .35s cubic-bezier(.21, 1.02, .73, 1);
     position: relative;
     overflow: hidden;
-  }
-  
-  .toast.show {
+}
+
+.toast.show {
     opacity: 1;
     transform: translateX(0);
-  }
-  
-  .toast.hide {
+}
+
+.toast.hide {
     opacity: 0;
     transform: translateX(120%);
-  }
-  
-  /* ICON */
-  .toast-icon {
+}
+
+/* ICON */
+.toast-icon {
     flex-shrink: 0;
     width: 20px;
     height: 20px;
@@ -522,32 +562,34 @@
     color: #fff;
     font-size: 13px;
     font-weight: 700;
-  }
-  
-  /* MESSAGE */
-  .toast-message {
+    margin-top: 2px;
+}
+
+/* MESSAGE */
+.toast-message {
     flex: 1;
     padding-top: 1px;
-  }
-  
-  /* CLOSE BUTTON */
-  .toast-close {
+}
+
+/* CLOSE BUTTON */
+.toast-close {
     background: none;
     border: none;
     cursor: pointer;
-    color: #9ca3af;
-    font-size: 18px;
+    color: #7f8999;
+    font-size: 22px;
     line-height: 1;
     padding: 0 2px;
+    font-weight: 500;
     transition: color .15s;
-  }
-  
-  .toast-close:hover {
+}
+
+.toast-close:hover {
     color: #374151;
-  }
-  
-  /* PROGRESS */
-  .toast-progress {
+}
+
+/* PROGRESS */
+.toast-progress {
     position: absolute;
     bottom: 0;
     left: 0;
@@ -555,73 +597,73 @@
     width: 100%;
     transform-origin: left;
     animation: toast-progress linear forwards;
-  }
-  
-  @keyframes toast-progress {
+}
+
+@keyframes toast-progress {
     from {
-      transform: scaleX(1);
+        transform: scaleX(1);
     }
-  
+
     to {
-      transform: scaleX(0);
+        transform: scaleX(0);
     }
-  }
-  
-  /* SUCCESS */
-  .toast.success {
+}
+
+/* SUCCESS */
+.toast.success {
     border-color: #10b981;
-  }
-  
-  .toast.success .toast-icon,
-  .toast.success .toast-progress {
+}
+
+.toast.success .toast-icon,
+.toast.success .toast-progress {
     background: #10b981;
-  }
-  
-  /* ERROR */
-  .toast.error {
+}
+
+/* ERROR */
+.toast.error {
     border-color: #ef4444;
-  }
-  
-  .toast.error .toast-icon,
-  .toast.error .toast-progress {
+}
+
+.toast.error .toast-icon,
+.toast.error .toast-progress {
     background: #ef4444;
-  }
-  
-  /* INFO */
-  .toast.info {
+}
+
+/* INFO */
+.toast.info {
     border-color: #3b82f6;
-  }
-  
-  .toast.info .toast-icon,
-  .toast.info .toast-progress {
+}
+
+.toast.info .toast-icon,
+.toast.info .toast-progress {
     background: #3b82f6;
-  }
-  
-  /* WARNING */
-  .toast.warning {
+}
+
+/* WARNING */
+.toast.warning {
     border-color: #f59e0b;
-  }
-  
-  .toast.warning .toast-icon,
-  .toast.warning .toast-progress {
+}
+
+.toast.warning .toast-icon,
+.toast.warning .toast-progress {
     background: #f59e0b;
-  }
-  
-  /* DARK MODE */
-  @media (prefers-color-scheme: dark) {
+}
+
+/* DARK MODE */
+@media (prefers-color-scheme: dark) {
     .toast {
-      background: #1f2937;
-      color: #f9fafb;
+        background: #1f2937;
+        color: #ebecee;
     }
-  
+
     .toast-close {
-      color: #9ca3af;
+        color: #9ca3af;
     }
-  
+
     .toast-close:hover {
-      color: #f9fafb;
+        color: #f9fafb;
     }
-  }
+}
 
 .dealer-location-block .no-retailers-found p {
     font-weight: 500;
@@ -851,6 +893,12 @@
 }
 
 @media (max-width: 900px) {
+
+    .dealer-locations-section .icon-btn {
+        height: 24px;
+        width: 24px;
+    }
+
     .dealer-locations-section .dealer-location-block {
         max-height: unset;
     }
