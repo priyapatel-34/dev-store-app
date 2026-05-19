@@ -9,8 +9,16 @@ const cleanText = (val) => {
 };
 
 const toNumber = (val) => {
-  if (val === undefined || val === null || String(val).trim() === "") return null;
-  const n = Number(val);
+  if (val === undefined || val === null) return null;
+
+  const cleaned = String(val)
+    .trim()
+    .replace(/^,+|,+$/g, "");
+
+  if (cleaned === "") return null;
+
+  const n = Number(cleaned);
+
   return isNaN(n) ? null : n;
 };
 
@@ -24,8 +32,8 @@ const safeUnlink = (filePath) => {
 const ALLOWED_RETAILER_TYPES = ["online", "offline"];
 
 const RETAILER_TYPE_ALIASES = {
-  online:              "online",
-  offline:             "offline",
+  online: "online",
+  offline: "offline",
 };
 
 async function getShopIdFromSession(res) {
@@ -51,10 +59,10 @@ async function getShopIdFromSession(res) {
 export async function getRetailers(req, res) {
   try {
     const store_id = await getShopIdFromSession(res);
-    const { country, category, search  } = req.query;
+    const { country, category, search } = req.query;
     const cleanSearch = search
-    ? search.trim().replace(/\s+/g, " ")
-    : null;
+      ? search.trim().replace(/\s+/g, " ")
+      : null;
     const query = `
       SELECT 
         r.id,
@@ -448,10 +456,95 @@ export async function getRetailerById(req, res) {
 const normalizeRetailerType = (val) => {
   if (!val || String(val).trim() === "") return "offline";
   const key = String(val).trim().toLowerCase();
-  return RETAILER_TYPE_ALIASES[key] ?? null; 
+  return RETAILER_TYPE_ALIASES[key] ?? null;
 };
 
-// ─── Import CSV ───────────────────────────────────────────────────────────────
+const validateRetailerRow = (row) => {
+  const errors = [];
+
+  // Name
+  if (!cleanText(row.name)) {
+    errors.push("Missing required field: name");
+  }
+
+  // Country
+  if (!cleanText(row.country)) {
+    errors.push("Missing required field: country");
+  }
+
+  // Email validation
+  const email = cleanText(row.email)
+    ?.replace(/\s+/g, "")
+    ?.trim();
+
+  if (
+    email &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    errors.push(`Invalid email: "${row.email}"`);
+  }
+
+  // Website URL validation
+  if (
+    cleanText(row.website_url)
+    && !/^https?:\/\/.+/i.test(row.website_url)
+  ) {
+    errors.push(`Invalid website_url: "${row.website_url}"`);
+  }
+
+  // Google Maps URL validation
+  if (
+    cleanText(row.google_maps_link) &&
+    !/^(https?:\/\/)?(www\.)?(google\.)?.+/i.test(
+      row.google_maps_link.trim()
+    )
+  ) {
+    errors.push(`Invalid google_maps_link: "${row.google_maps_link}"`);
+  }
+
+  // Phone validation
+  if (
+    cleanText(row.phone)
+    && !/^[0-9+\-\s()]{6,20}$/.test(row.phone)
+  ) {
+    errors.push(`Invalid phone: "${row.phone}"`);
+  }
+
+  // Postal code validation
+  if (
+    cleanText(row.postal_code)
+    && String(row.postal_code).length > 20
+  ) {
+    errors.push(`Invalid postal_code: "${row.postal_code}"`);
+  }
+
+  // Latitude validation
+  if (cleanText(row.latitude)) {
+    const latitude = toNumber(row.latitude);
+
+    if (
+      latitude === null ||
+      latitude < -90 ||
+      latitude > 90
+    ) {
+      errors.push(`Invalid latitude: "${row.latitude}"`);
+    }
+  }
+
+  if (cleanText(row.longitude)) {
+    const longitude = toNumber(row.longitude);
+
+    if (
+      longitude === null ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      errors.push(`Invalid longitude: "${row.longitude}"`);
+    }
+  }
+
+  return errors;
+};
 
 export async function importRetailersCSV(req, res) {
   if (!req.file) {
@@ -492,12 +585,16 @@ export async function importRetailersCSV(req, res) {
     const row = results[i];
     const rowNum = i + 2;
 
-    if (!cleanText(row.name)) {
-      errors.push({ row: rowNum, error: "Missing required field: name" });
-      continue;
-    }
-    if (!cleanText(row.country)) {
-      errors.push({ row: rowNum, error: "Missing required field: country" });
+    const validationErrors = validateRetailerRow(row);
+
+    if (validationErrors.length) {
+      validationErrors.forEach((err) => {
+        errors.push({
+          row: rowNum,
+          error: err,
+        });
+      });
+
       continue;
     }
 
@@ -527,6 +624,47 @@ export async function importRetailersCSV(req, res) {
         await client.query("ROLLBACK");
         continue;
       }
+      const duplicateRetailer = await client.query(
+        `
+        SELECT id
+        FROM retailers
+        WHERE store_id = $1
+          AND LOWER(TRIM(name)) = LOWER(TRIM($2))
+          AND LOWER(TRIM(COALESCE(address_line1, ''))) = LOWER(TRIM(COALESCE($3, '')))
+          AND LOWER(TRIM(COALESCE(city, ''))) = LOWER(TRIM(COALESCE($4, '')))
+          AND LOWER(TRIM(COALESCE(state, ''))) = LOWER(TRIM(COALESCE($5, '')))
+          AND country_id = $6
+          AND COALESCE(latitude, 0::numeric) = COALESCE($7::numeric, 0::numeric)
+          AND COALESCE(longitude, 0::numeric) = COALESCE($8::numeric, 0::numeric)
+          AND LOWER(TRIM(COALESCE(opening_hours, ''))) = LOWER(TRIM(COALESCE($9, '')))
+          AND LOWER(TRIM(COALESCE(postal_code, ''))) = LOWER(TRIM(COALESCE($10, '')))
+          AND LOWER(TRIM(COALESCE(phone, ''))) = LOWER(TRIM(COALESCE($11, '')))
+        LIMIT 1
+        `,
+        [
+          store_id,
+          cleanText(row.name),
+          cleanText(row.address_line1),
+          cleanText(row.city),
+          cleanText(row.state),
+          country_id,
+          toNumber(row.latitude),
+          toNumber(row.longitude),
+          cleanText(row.opening_hours),
+          cleanText(row.postal_code),
+          cleanText(row.phone),
+        ]
+      );
+
+      if (duplicateRetailer.rows.length) {
+        errors.push({
+          row: rowNum,
+          error: `Retailer already exists with same details`,
+        });
+
+        await client.query("ROLLBACK");
+        continue;
+      }
 
       const rawStatus = cleanText(row.status)?.toLowerCase();
       const retailerStatus = rawStatus === "inactive" ? "inactive" : "active";
@@ -550,8 +688,8 @@ export async function importRetailersCSV(req, res) {
           store_id,
           country_id,
           cleanText(row.name),
-          retailerType,  
-          retailerStatus, 
+          retailerType,
+          retailerStatus,
           cleanText(row.address_line1),
           cleanText(row.address_line2),
           cleanText(row.city),

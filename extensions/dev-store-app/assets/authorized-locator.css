@@ -149,6 +149,7 @@
     border: 2px solid #222222;
     max-height: inherit;
     overflow: hidden;
+    height: fit-content;
 }
 
 .dealer-locations-section .upper-block {
@@ -191,6 +192,7 @@
 .dealer-locations-section .right-block .map {
     height: 100% !important;
     width: 100%;
+    min-height: 820px;
 }
 
 .dealer-locations-section .right-block iframe,
@@ -451,11 +453,175 @@
 }
 
 .dealer-location-block .gm-style .btn {
-    height: 34px;
+    min-height: 34px;
     font-size: 12px;
     font-family: inherit;
     font-weight: 500;
 }
+
+/* TOAST CONTAINER */
+#toast-container {
+    position: fixed !important;
+    bottom: 24px !important;
+    right: 24px !important;
+    top: auto !important;
+    left: auto !important;
+  
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  
+    z-index: 999999;
+    pointer-events: none;
+  }
+  
+  /* TOAST */
+  .toast {
+    pointer-events: auto;
+    min-width: 280px;
+    max-width: 380px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    background: #fff;
+    color: #1f2937;
+    border-radius: 12px;
+    box-shadow:
+      0 10px 25px -5px rgba(0,0,0,.15),
+      0 4px 10px -5px rgba(0,0,0,.08);
+    border-left: 4px solid;
+    font: 500 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    opacity: 0;
+    transform: translateX(120%);
+    transition:
+      opacity .25s ease,
+      transform .35s cubic-bezier(.21,1.02,.73,1);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .toast.show {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  
+  .toast.hide {
+    opacity: 0;
+    transform: translateX(120%);
+  }
+  
+  /* ICON */
+  .toast-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  
+  /* MESSAGE */
+  .toast-message {
+    flex: 1;
+    padding-top: 1px;
+  }
+  
+  /* CLOSE BUTTON */
+  .toast-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9ca3af;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 2px;
+    transition: color .15s;
+  }
+  
+  .toast-close:hover {
+    color: #374151;
+  }
+  
+  /* PROGRESS */
+  .toast-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    width: 100%;
+    transform-origin: left;
+    animation: toast-progress linear forwards;
+  }
+  
+  @keyframes toast-progress {
+    from {
+      transform: scaleX(1);
+    }
+  
+    to {
+      transform: scaleX(0);
+    }
+  }
+  
+  /* SUCCESS */
+  .toast.success {
+    border-color: #10b981;
+  }
+  
+  .toast.success .toast-icon,
+  .toast.success .toast-progress {
+    background: #10b981;
+  }
+  
+  /* ERROR */
+  .toast.error {
+    border-color: #ef4444;
+  }
+  
+  .toast.error .toast-icon,
+  .toast.error .toast-progress {
+    background: #ef4444;
+  }
+  
+  /* INFO */
+  .toast.info {
+    border-color: #3b82f6;
+  }
+  
+  .toast.info .toast-icon,
+  .toast.info .toast-progress {
+    background: #3b82f6;
+  }
+  
+  /* WARNING */
+  .toast.warning {
+    border-color: #f59e0b;
+  }
+  
+  .toast.warning .toast-icon,
+  .toast.warning .toast-progress {
+    background: #f59e0b;
+  }
+  
+  /* DARK MODE */
+  @media (prefers-color-scheme: dark) {
+    .toast {
+      background: #1f2937;
+      color: #f9fafb;
+    }
+  
+    .toast-close {
+      color: #9ca3af;
+    }
+  
+    .toast-close:hover {
+      color: #f9fafb;
+    }
+  }
 
 .dealer-location-block .no-retailers-found p {
     font-weight: 500;
@@ -701,6 +867,7 @@
 
     .dealer-locations-section .right-block .map {
         aspect-ratio: 1 / 1;
+        min-height: unset;
     }
 
     .dealer-locations-section .dropdown-list {

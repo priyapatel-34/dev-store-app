@@ -95,7 +95,7 @@ const CSV_TEMPLATE_HEADERS = [
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^[0-9]{7,15}$/;
+const PHONE_REGEX = /^[0-9+\-\s()]{7,20}$/;
 
 const validateRetailerData = (data) => {
   const errors = {};
@@ -530,6 +530,7 @@ const RetailersManager = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [searchValue, setSearchValue] = useState("");
   const [toast, setToast] = useState({ active: false, message: "", error: false });
 
@@ -575,6 +576,7 @@ const RetailersManager = () => {
       showToast("Failed to fetch retailers", true);
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   }, [searchValue, showToast]);
 
@@ -826,7 +828,7 @@ const RetailersManager = () => {
             />
           </Box>
 
-          {loading ? (
+          {loading || initialLoading? (
             <Box padding="1600" as="div" style={{ textAlign: "center" }}>
               <Spinner accessibilityLabel="Loading retailers" size="large" />
             </Box>

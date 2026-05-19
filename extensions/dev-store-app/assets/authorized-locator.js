@@ -9,23 +9,17 @@ function getDistanceUnit() {
 
 const App = {
   stores: [],
-  map: null,   // google.maps.Map instance
-  markers: [],     // [{ marker: AdvancedMarkerElement, storeId, position }]
+  map: null,  
+  markers: [],  
 };
 
-// Shared InfoWindow — only one open at a time
 let sharedInfoWindow = null;
-
-// ============================================================
-// BOOT
-// ============================================================
 
 document.addEventListener('DOMContentLoaded', async () => {
   renderRadiusDropdown();
   initDropdowns();
   setupLocationSearch();
   initCurrentLocationButton();
-
   await loadFilterSettings();
   await loadCategories();
   await initGoogleMap();
@@ -36,29 +30,20 @@ let mapsBootstrapped = false;
 
 async function bootstrapGoogleMaps() {
   if (window.google && window.google.maps) return;
-
   return new Promise((resolve, reject) => {
     const existingScript = document.getElementById("googleMapsScript");
-
     if (existingScript) {
       existingScript.onload = resolve;
       return;
     }
-
     const script = document.createElement("script");
-
     script.id = "googleMapsScript";
-
     script.src =
       `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,marker&v=weekly`;
-
     script.async = true;
     script.defer = true;
-
     script.onload = resolve;
-
     script.onerror = () => reject("Google Maps failed to load");
-
     document.head.appendChild(script);
   });
 }
@@ -66,13 +51,9 @@ async function bootstrapGoogleMaps() {
 async function initGoogleMap() {
   const mapContainer = document.getElementById('map-container');
   if (!mapContainer) return;
-
   await bootstrapGoogleMaps();
-
   const { Map, InfoWindow } = await google.maps.importLibrary('maps');
-
   sharedInfoWindow = new InfoWindow();
-
   App.map = new Map(mapContainer, {
     zoom: 6,
     center: { lat: 20, lng: 0 },
@@ -82,50 +63,38 @@ async function initGoogleMap() {
     zoomControl: true,
     streetViewControl: true,
   });
-
   if (App.stores.length === 0) return;
-
   await placeStoreMarkers(App.stores);
   fitBoundsToMarkers();
 }
 
 async function placeStoreMarkers(stores) {
   if (!App.map) return;
-
   const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
-
   stores
     .filter(s => s.latitude && s.longitude)
     .forEach((store, index) => {
       const lat = parseFloat(store.latitude);
       const lng = parseFloat(store.longitude);
-
-      // prevent overlapping markers
       const offset = index * 0.00008;
-
       const position = {
         lat: lat + offset,
         lng: lng + offset,
       };
-
-      // Custom SVG pin image
       const pinImg = document.createElement('img');
       pinImg.src = 'https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Mock_Map_Markers.svg';
       pinImg.title = store.name;
       pinImg.style.cssText = 'width:38px;height:45px;cursor:pointer;display:block';
-
       const marker = new AdvancedMarkerElement({
         map: App.map,
         position,
         title: store.name,
         content: pinImg,
       });
-
       marker.addListener('click', () => {
         sharedInfoWindow.setContent(buildPopupHTML(store));
         sharedInfoWindow.open({ map: App.map, anchor: marker });
       });
-
       App.markers.push({ marker, storeId: store.id, position });
     });
 }
@@ -210,10 +179,39 @@ async function placeStoreMarkers(stores) {
 //     });
 // }
 
+// async function placeUserLocationMarker() {
+//   if (!App.map || !UserLocation.latitude) return;
+
+//   const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary('marker');
+
+//   const pin = new PinElement({
+//     background: '#4285F4',
+//     borderColor: '#1a73e8',
+//     glyphColor: '#ffffff',
+//     scale: 1.2,
+//   });
+
+//   new AdvancedMarkerElement({
+//     map: App.map,
+//     position: { lat: UserLocation.latitude, lng: UserLocation.longitude },
+//     title: 'Your Location',
+//     content: pin.element,
+//   });
+// }
+// GLOBAL
+let userLocationMarker = null;
+
 async function placeUserLocationMarker() {
+
   if (!App.map || !UserLocation.latitude) return;
 
-  const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary('marker');
+  const { AdvancedMarkerElement, PinElement } =
+    await google.maps.importLibrary('marker');
+
+  if (userLocationMarker) {
+    userLocationMarker.map = null;
+    userLocationMarker = null;
+  }
 
   const pin = new PinElement({
     background: '#4285F4',
@@ -222,37 +220,81 @@ async function placeUserLocationMarker() {
     scale: 1.2,
   });
 
-  new AdvancedMarkerElement({
+  userLocationMarker = new AdvancedMarkerElement({
     map: App.map,
-    position: { lat: UserLocation.latitude, lng: UserLocation.longitude },
+    position: {
+      lat: UserLocation.latitude,
+      lng: UserLocation.longitude,
+    },
     title: 'Your Location',
     content: pin.element,
   });
 }
-
 function fitBoundsToMarkers() {
   if (!App.map || !App.markers.length) return;
   const { LatLngBounds } = google.maps;
   const bounds = new LatLngBounds();
   App.markers.forEach(m => bounds.extend(m.position));
-  App.map.fitBounds(bounds, /* padding= */ 60);
+  App.map.fitBounds(bounds, 60);
 }
 
 // Remove all current markers from the map
+// function clearMarkers() {
+//   sharedInfoWindow?.close();
+//   App.markers.forEach(({ marker }) => {
+//     marker.map = null; // AdvancedMarkerElement: set .map = null to detach
+//   });
+//   App.markers = [];
+// }
 function clearMarkers() {
-  sharedInfoWindow?.close();
-  App.markers.forEach(({ marker }) => {
-    marker.map = null; // AdvancedMarkerElement: set .map = null to detach
-  });
-  App.markers = [];
-}
 
+  sharedInfoWindow?.close();
+
+  App.markers.forEach(({ marker }) => {
+    marker.map = null;
+  });
+
+  App.markers = [];
+
+  // current location marker
+  if (userLocationMarker) {
+    userLocationMarker.map = null;
+    userLocationMarker = null;
+  }
+}
 // Full map refresh: clear + re-add store markers (+ optional user dot)
-async function reinitializeMap({ showUserLocation = false } = {}) {
+async function reinitializeMap({
+  showUserLocation = false,
+  userOnly = false,
+} = {}) {
+
   if (!App.map) return;
+
   clearMarkers();
+
+  // ✅ ONLY CURRENT LOCATION
+  if (userOnly) {
+
+    await placeUserLocationMarker();
+
+    App.map.setCenter({
+      lat: UserLocation.latitude,
+      lng: UserLocation.longitude,
+    });
+
+    App.map.setZoom(12);
+
+    return;
+  }
+
+  // ✅ retailer markers
   await placeStoreMarkers(App.stores);
-  if (showUserLocation) await placeUserLocationMarker();
+
+  // ✅ current location marker
+  if (showUserLocation) {
+    await placeUserLocationMarker();
+  }
+
   fitBoundsToMarkers();
 }
 
@@ -273,15 +315,15 @@ function buildPopupHTML(store) {
   return `
     <div style="min-width:220px;max-width:280px;font-family:'Sennheiser Neue';font-size:12px;line-height:1.5;padding:4px 2px; color: #818183; font-weight: 500;">
       <h4 style="padding-right: 18px;margin:0 0 8px;color:#000;font-size:16px;font-weight:600;">${store.name}</h4>
-      <p style="margin:4px 0"><span><img src="src="./map-location-icon.svg" alt="Map location icon" /></span> ${address || 'N/A'}</p>
+      <p style="margin:4px 0; display: flex; gap: 6px;"><span style="width: 20px; min-width: 20px; display: inline-block;"><img style="height: auto;" src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Location.svg?v=1777545764" alt="Map location icon" /></span> ${address || 'N/A'}</p>
       ${distanceHTML}
       ${store.phone
-      ? `<p style="margin:4px 0"><span><img src="./map-phone-icon.svg" alt="Map phone icon" /></span> <a href="tel:${store.phone}" style="color:inherit;">${store.phone}</a></p>`
+      ? `<p style="margin:4px 0; display: flex; gap: 6px;"><span style="width: 20px; min-width: 20px; display: inline-block;"><img style="height: auto;" src="https://cdn.shopify.com/s/files/1/0910/7075/9198/files/Call.svg?v=1777545764" alt="Map phone icon" /></span> <a href="tel:${store.phone}" style="color:inherit; display: flex;">${store.phone}</a></p>`
       : ''}
       <div class="custom-footer-block">
         ${store.website_url
-        ? `<p style="margin:6px 0 0"><a href="${store.website_url}" target="_blank" rel="noopener" style="color:#037cc2">Visit Website ↗</a></p>`
-        : ''}
+      ? `<p style="margin:6px 0 0"><a href="${store.website_url}" target="_blank" rel="noopener" style="color:#037cc2">Visit Website ↗</a></p>`
+      : ''}
         <a class="btn btn-primary" title="Get Direction">Get Direcion</a>
       </div>
     </div>`;
@@ -467,17 +509,109 @@ function initCurrentLocationButton() {
     });
 }
 
+// function showToast(message, type = "success") {
+//   // remove old toast if exists
+//   const existingToast = document.getElementById("custom-toast");
+
+//   if (existingToast) {
+//     existingToast.remove();
+//   }
+
+//   const toast = document.createElement("div");
+
+//   toast.id = "custom-toast";
+
+//   toast.innerText = message;
+
+//   toast.style.position = "fixed";
+//   toast.style.bottom = "24px";
+//   toast.style.right = "24px";
+//   toast.style.padding = "14px 18px";
+//   toast.style.borderRadius = "8px";
+//   toast.style.color = "#fff";
+//   toast.style.fontSize = "14px";
+//   toast.style.fontWeight = "500";
+//   toast.style.zIndex = "999999";
+//   toast.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+//   toast.style.transition = "all 0.3s ease";
+
+//   // color based on type
+//   toast.style.background =
+//     type === "error"
+//       ? "#d82c0d"
+//       : "#008060";
+
+//   document.body.appendChild(toast);
+
+//   setTimeout(() => {
+//     toast.style.opacity = "0";
+
+//     setTimeout(() => {
+//       toast.remove();
+//     }, 300);
+
+//   }, 3000);
+// }
+
+function showToast(message, type = "success", duration = 5000) {
+  // Inject styles + container once
+  if (!document.getElementById("toast-styles")) {
+    const style = document.createElement("style");
+    style.id = "toast-styles";
+    style.textContent = `...`;
+    document.head.appendChild(style);
+  }
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    document.body.appendChild(container);
+  }
+
+  const icons = { success: "✓", error: "✕", info: "i", warning: "!" };
+
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${icons[type] || "i"}</span>
+    <span class="toast-message"></span>
+    <button class="toast-close" aria-label="Close">&times;</button>
+    <span class="toast-progress" style="animation-duration:${duration}ms"></span>
+  `;
+  toast.querySelector(".toast-message").textContent = message;
+
+  const remove = () => {
+    toast.classList.add("hide");
+    setTimeout(() => toast.remove(), 350);
+  };
+  toast.querySelector(".toast-close").addEventListener("click", remove);
+
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
+  setTimeout(remove, duration);
+}
+
+// Usage:
+// showToast("Saved successfully");
+// showToast("Something went wrong", "error");
+// showToast("Heads up!", "warning", 5000);
+// showToast("New update available", "info");
+
+
 async function loadNearbyStores() {
   if (isFetchingNearby) return;
   isFetchingNearby = true;
 
   const currentBtn = document.getElementById('current-location-btn');
   const resetBtn = document.getElementById('reset-location-btn');
+
   if (currentBtn) currentBtn.style.display = 'none';
 
   try {
     showLocationLoader('Detecting location...');
+
     const location = await getCurrentLocation();
+
     UserLocation.latitude = location.latitude;
     UserLocation.longitude = location.longitude;
     UserLocation.accuracy = location.accuracy || null;
@@ -489,50 +623,101 @@ async function loadNearbyStores() {
       location.longitude
     );
 
+    // ✅ SHOW CURRENT LOCATION IN SEARCH BAR
     updateLocationInput(place);
 
-    // SHOW RESET BUTTON
-    if (resetBtn) {
-      resetBtn.style.display = 'block';
-    }
-
-    // Store selected value
-    const input = document.querySelector('input[name="location-address"]');
+    const input = document.querySelector(
+      'input[name="location-address"]'
+    );
 
     if (input && place) {
       input.dataset.selectedSearch = place;
     }
 
+    // ✅ SHOW RESET BUTTON
+    if (resetBtn) {
+      resetBtn.style.display = 'block';
+    }
+
     updateLoaderMessage('Finding nearby stores...');
-    if (App.stores.length === 0) await loadRetailers();
+
+    if (App.stores.length === 0) {
+      await loadRetailers();
+    }
 
     const nearby = filterNearbyStores(App.stores);
+
     hideLocationLoader();
 
+    // ✅ ALWAYS SHOW CURRENT LOCATION ON MAP
+    App.map.setCenter({
+      lat: location.latitude,
+      lng: location.longitude,
+    });
+
+    App.map.setZoom(12);
+
+    await reinitializeMap({
+      showUserLocation: true,
+      userOnly: true,
+    });
+
+    // ✅ IF NO RETAILERS FOUND
     if (!nearby.length) {
-      alert(`No stores found within ${NEARBY_STORES_RADIUS_KM} km of your location.`);
-      if (currentBtn) currentBtn.style.display = 'block';
-      if (resetBtn) resetBtn.style.display = 'none';
-      UserLocation.latitude = UserLocation.longitude = UserLocation.accuracy = null;
-      clearLocationInput();
+      showToast("No retailers found", "error");
+      App.map.setCenter({
+        lat: location.latitude,
+        lng: location.longitude,
+      });
+
+      App.map.setZoom(12);
+
+      App.stores = [];
+
+      renderRetailers([]);
+
+      updateDealerUI({ count: 0 });
+
+      await reinitializeMap({
+        showUserLocation: true,
+      });
+
       return;
     }
 
-    if (resetBtn) resetBtn.style.display = 'block';
-
     App.stores = nearby;
+
     renderRetailers(nearby);
-    updateDealerUI({ count: nearby.length });
-    await reinitializeMap({ showUserLocation: true });
+
+    updateDealerUI({
+      count: nearby.length,
+    });
+
+    await reinitializeMap({
+      showUserLocation: true,
+    });
 
   } catch (err) {
+
     console.error('loadNearbyStores error:', err);
+
     hideLocationLoader();
-    alert('Unable to get your location. Please enable location services and try again.');
+
+    showToast(
+      "Unable to get your location. Please enable location services and try again.",
+      "error"
+    );
+
     if (currentBtn) currentBtn.style.display = 'block';
+
     if (resetBtn) resetBtn.style.display = 'none';
-    UserLocation.latitude = UserLocation.longitude = UserLocation.accuracy = null;
+
+    UserLocation.latitude = null;
+    UserLocation.longitude = null;
+    UserLocation.accuracy = null;
+
     clearLocationInput();
+
   } finally {
     isFetchingNearby = false;
   }
@@ -553,6 +738,61 @@ async function loadNearbyStores() {
 //   await reinitializeMap();
 // }
 
+// async function resetToInitialView() {
+//   const currentBtn = document.getElementById('current-location-btn');
+//   const resetBtn = document.getElementById('reset-location-btn');
+
+//   const input = document.querySelector('input[name="location-address"]');
+
+//   const categorySpan = document.querySelector('#categoryDropdown .dropdown-btn span');
+//   const radiusSpan = document.querySelector('#radiusDropdown .dropdown-btn span');
+
+//   const dropdown = document.querySelector('.input-box.dropdown');
+//   const list = document.getElementById('locationDropdownList');
+
+//   // Clear markers
+//   clearMarkers();
+
+//   // Reset location object
+//   UserLocation.latitude = null;
+//   UserLocation.longitude = null;
+//   UserLocation.accuracy = null;
+
+//   // Clear input
+//   if (input) {
+//     input.value = '';
+//     delete input.dataset.selectedSearch;
+//   }
+
+//   // Clear dropdown suggestions
+//   if (list) list.innerHTML = '';
+
+//   // Close dropdown
+//   dropdown?.classList.remove('active');
+
+//   // Reset category dropdown
+//   if (categorySpan) {
+//     categorySpan.innerText = 'Select Category';
+//     categorySpan.classList.add('placeholder');
+//   }
+
+//   // Reset radius dropdown
+//   if (radiusSpan) {
+//     radiusSpan.innerText = 'Radius';
+//     radiusSpan.classList.add('placeholder');
+//   }
+
+//   // Button visibility
+//   if (currentBtn) currentBtn.style.display = 'block';
+//   if (resetBtn) resetBtn.style.display = 'none';
+
+//   // Reload all retailers
+//   await loadRetailers();
+
+//   // Reset map
+//   await reinitializeMap();
+// }
+
 async function resetToInitialView() {
   const currentBtn = document.getElementById('current-location-btn');
   const resetBtn = document.getElementById('reset-location-btn');
@@ -565,49 +805,61 @@ async function resetToInitialView() {
   const dropdown = document.querySelector('.input-box.dropdown');
   const list = document.getElementById('locationDropdownList');
 
-  // Clear markers
+  // ✅ Clear all markers
   clearMarkers();
 
-  // Reset location object
+  // ✅ Reset user location completely
   UserLocation.latitude = null;
   UserLocation.longitude = null;
   UserLocation.accuracy = null;
 
-  // Clear input
+  // ✅ Clear input
   if (input) {
     input.value = '';
     delete input.dataset.selectedSearch;
+    delete input.dataset.selectedLat;
+    delete input.dataset.selectedLng;
   }
 
-  // Clear dropdown suggestions
+  // ✅ Clear dropdown list
   if (list) list.innerHTML = '';
 
-  // Close dropdown
+  // ✅ Close dropdown
   dropdown?.classList.remove('active');
 
-  // Reset category dropdown
+  // ✅ Reset category
   if (categorySpan) {
     categorySpan.innerText = 'Select Category';
     categorySpan.classList.add('placeholder');
   }
 
-  // Reset radius dropdown
+  // ✅ Reset radius
   if (radiusSpan) {
     radiusSpan.innerText = 'Radius';
     radiusSpan.classList.add('placeholder');
   }
 
-  // Button visibility
+  // ✅ Reset buttons
   if (currentBtn) currentBtn.style.display = 'block';
   if (resetBtn) resetBtn.style.display = 'none';
 
-  // Reload all retailers
+  // ✅ Reload all retailers
   await loadRetailers();
 
-  // Reset map
-  await reinitializeMap();
-}
+  // ✅ IMPORTANT: remove current location marker completely
+  await reinitializeMap({
+    showUserLocation: false,
+    userOnly: false,
+  });
 
+  // ✅ Reset map default center
+  App.map.setCenter({
+    lat: 20,
+    lng: 78,
+  });
+
+  App.map.setZoom(5);
+}
 function filterNearbyStores(stores, radiusKm = NEARBY_STORES_RADIUS_KM) {
   if (!UserLocation.latitude || !UserLocation.longitude) return [];
   return stores
@@ -736,7 +988,10 @@ async function loadRetailers(params = {}) {
     // updateDealerUI({ search: params.search, count: data.length, radius: params.radius });
 
   } catch (err) {
-    console.error('loadRetailers error:', err);
+    showToast(
+      "Something went wrong while loading retailers.",
+      "error"
+    );
     renderRetailers([]);
     updateDealerUI({ count: 0 });
   }
@@ -746,9 +1001,19 @@ async function loadCategories() {
   try {
     const url = `${window.RETAILER_API_URL || ''}/categories?shop=${window.SHOP_DOMAIN || ''}`;
     const result = await fetch(url).then(r => r.json());
-    if (result.success) renderCategories(result.data);
+    if (result.success) {
+      renderCategories(result.data);
+    } else {
+      showToast(
+        "Unable to load categories",
+        "error"
+      );
+    }
   } catch (err) {
-    console.error('loadCategories error:', err);
+    showToast(
+      "Failed to load categories.",
+      "error"
+    );
   }
 }
 
@@ -761,7 +1026,10 @@ async function loadFilterSettings() {
         ?.classList.toggle('no-filters', !result.data[0].filter_enabled);
     }
   } catch (err) {
-    console.error('loadFilterSettings error:', err);
+    showToast(
+      "Unable to load filter settings.",
+      "error"
+    );
   }
 }
 
@@ -911,41 +1179,134 @@ function initDropdowns() {
     ?.addEventListener('click', handleSearch);
 }
 
-async function handleSearch() {
-  const searchInput = document.querySelector('input[name="location-address"]');
-  const categorySpan = document.querySelector('#categoryDropdown .dropdown-btn span');
-  const radiusSpan = document.querySelector('#radiusDropdown .dropdown-btn span');
+// async function handleSearch() {
+//   const searchInput = document.querySelector('input[name="location-address"]');
+//   const categorySpan = document.querySelector('#categoryDropdown .dropdown-btn span');
+//   const radiusSpan = document.querySelector('#radiusDropdown .dropdown-btn span');
 
-  // const searchValue   = searchInput?.value?.trim() || null;
-  const searchValue =
-    searchInput?.dataset?.selectedSearch ||
-    searchInput?.value?.trim() ||
-    null;
-  const categoryValue = categorySpan?.innerText?.includes('Select') ? null : categorySpan?.innerText;
-  const radiusValue = radiusSpan?.innerText?.includes('Radius') ? null : radiusSpan?.innerText;
+//   // const searchValue   = searchInput?.value?.trim() || null;
+//   const searchValue =
+//     searchInput?.dataset?.selectedSearch ||
+//     searchInput?.value?.trim() ||
+//     null;
+//   const categoryValue = categorySpan?.innerText?.includes('Select') ? null : categorySpan?.innerText;
+//   const radiusValue = radiusSpan?.innerText?.includes('Radius') ? null : radiusSpan?.innerText;
+
+//   const params = {};
+//   if (searchValue) params.search = searchValue;
+//   if (categoryValue) params.category = categoryValue;
+
+//   if (radiusValue) {
+//     try {
+//       const num = parseFloat(radiusValue);
+//       await getCurrentLocation();
+//       params.lat = parseFloat(searchInput.dataset.selectedLat);
+//       params.lng = parseFloat(searchInput.dataset.selectedLng);
+//       params.radius = getDistanceUnit() === 'miles' ? num * 1.60934 : num;
+//     } catch {
+//       alert('Unable to fetch current location. Please allow location access.');
+//       return;
+//     }
+//   }
+
+//   await loadRetailers(params);
+//   await reinitializeMap();
+// }
+
+// LOCATION SEARCH — autocomplete suggestions
+
+async function handleSearch() {
+
+  const searchInput = document.querySelector(
+    'input[name="location-address"]'
+  );
+
+  const categorySpan = document.querySelector(
+    '#categoryDropdown .dropdown-btn span'
+  );
+
+  const radiusSpan = document.querySelector(
+    '#radiusDropdown .dropdown-btn span'
+  );
+
+  // ✅ typed value
+  const typedValue =
+    searchInput?.value?.trim() || '';
+
+  // ✅ selected dropdown value
+  const selectedValue =
+    searchInput?.dataset?.selectedSearch || null;
+
+  // ✅ VALIDATION
+  if (typedValue && !selectedValue) {
+
+    showToast(
+      "Please select a location from dropdown suggestions.",
+      "error"
+    );
+
+    return;
+  }
+
+  // ✅ only selected value allowed
+  const searchValue = selectedValue;
+
+  const categoryValue =
+    categorySpan?.innerText?.includes('Select')
+      ? null
+      : categorySpan?.innerText;
+
+  const radiusValue =
+    radiusSpan?.innerText?.includes('Radius')
+      ? null
+      : radiusSpan?.innerText;
 
   const params = {};
-  if (searchValue) params.search = searchValue;
-  if (categoryValue) params.category = categoryValue;
+
+  if (searchValue) {
+    params.search = searchValue;
+  }
+
+  if (categoryValue) {
+    params.category = categoryValue;
+  }
 
   if (radiusValue) {
+
     try {
+
       const num = parseFloat(radiusValue);
+
       await getCurrentLocation();
-      params.lat = parseFloat(searchInput.dataset.selectedLat);
-      params.lng = parseFloat(searchInput.dataset.selectedLng);
-      params.radius = getDistanceUnit() === 'miles' ? num * 1.60934 : num;
+
+      params.lat = parseFloat(
+        searchInput.dataset.selectedLat
+      );
+
+      params.lng = parseFloat(
+        searchInput.dataset.selectedLng
+      );
+
+      params.radius =
+        getDistanceUnit() === 'miles'
+          ? num * 1.60934
+          : num;
+
     } catch {
-      alert('Unable to fetch current location. Please allow location access.');
+
+      showToast(
+        "Unable to fetch current location.",
+        "error"
+      );
+
       return;
     }
   }
 
   await loadRetailers(params);
+
   await reinitializeMap();
 }
-
-// LOCATION SEARCH — autocomplete suggestions
 
 let suggestionTimer = null;
 
@@ -959,7 +1320,6 @@ function setupLocationSearch() {
   input.addEventListener('input', () => {
 
     clearTimeout(suggestionTimer);
-
     const value = input.value.trim();
 
     const resetBtn = document.getElementById('reset-location-btn');
@@ -979,7 +1339,6 @@ function setupLocationSearch() {
 
       // close dropdown
       dropdown.classList.remove('active');
-
       return;
     }
 
@@ -1026,9 +1385,18 @@ async function fetchSuggestions(search) {
     const url =
       `${window.RETAILER_API_URL || ''}/retailers?shop=${window.SHOP_DOMAIN || ''}&search=${encodeURIComponent(search)}`;
     const result = await fetch(url).then(r => r.json());
+    if (!result.success) {
+      showToast(
+        "Unable to fetch suggestions",
+        "error"
+      );
+    }
     return result.success ? (result.data || []) : [];
   } catch (err) {
-    console.error('fetchSuggestions error:', err);
+    showToast(
+      "Suggestion search failed.",
+      "error"
+    );
     return [];
   }
 }
